@@ -49,8 +49,12 @@ type CompanySeed = {
   slug: string;
   approvalStatus: CompanyApprovalStatus;
   industry: string;
-  programTag: string;
+  companySize: string;
+  headquarters: string;
   shortDescription: string;
+  description: string;
+  contactEmail: string;
+  programTag: string;
   /** Days ago this company signed up — used to stagger createdAt/updatedAt. */
   signedUpDaysAgo: number;
 };
@@ -102,8 +106,13 @@ const COMPANIES: CompanySeed[] = [
     slug: "acme-robotics",
     approvalStatus: "APPROVED",
     industry: "Robotics",
-    programTag: PROGRAM_TAGS[0],
+    companySize: "11-50",
+    headquarters: "Pittsburgh, PA",
     shortDescription: "Industrial automation built for small factories.",
+    description:
+      "Acme Robotics builds rugged pick-and-place robotic arms for small factories that have outgrown their CNC operators. We ship to roughly 200 customers across the US Midwest, and most of our team came up through the trades before going into engineering — practical first, theoretical second.",
+    contactEmail: "talent@acme.example.test",
+    programTag: PROGRAM_TAGS[0],
     signedUpDaysAgo: 75,
   },
   {
@@ -112,8 +121,13 @@ const COMPANIES: CompanySeed[] = [
     slug: "globex-health",
     approvalStatus: "PENDING",
     industry: "Healthcare",
-    programTag: PROGRAM_TAGS[1],
+    companySize: "2-10",
+    headquarters: "Oakland, CA",
     shortDescription: "Tools for community clinics.",
+    description:
+      "Globex Health is a small team building patient-experience tools for community clinics. We're recently funded and growing carefully — interns get end-to-end ownership of features that real clinicians depend on day to day.",
+    contactEmail: "hello@globex.example.test",
+    programTag: PROGRAM_TAGS[1],
     signedUpDaysAgo: 12,
   },
   {
@@ -122,8 +136,13 @@ const COMPANIES: CompanySeed[] = [
     slug: "initech-systems",
     approvalStatus: "SUSPENDED",
     industry: "Enterprise SaaS",
-    programTag: PROGRAM_TAGS[2],
+    companySize: "201-500",
+    headquarters: "Austin, TX",
     shortDescription: "Internal IT for mid-sized firms.",
+    description:
+      "Initech Systems provides internal IT and identity tooling for mid-sized firms across the US. Our internships rotate across platform, support engineering, and QA so interns leave with a clear picture of how an enterprise SaaS company actually runs.",
+    contactEmail: "careers@initech.example.test",
+    programTag: PROGRAM_TAGS[2],
     signedUpDaysAgo: 88,
   },
 ];
@@ -504,35 +523,31 @@ async function main(): Promise<void> {
       select: { id: true },
     });
 
+    const companyData = {
+      companyName: c.companyName,
+      slug: c.slug,
+      approvalStatus: c.approvalStatus,
+      industry: c.industry,
+      companySize: c.companySize,
+      headquarters: c.headquarters,
+      shortDescription: c.shortDescription,
+      description: c.description,
+      contactEmail: c.contactEmail,
+      programTag: c.programTag,
+      createdAt: stamp,
+      updatedAt: stamp,
+    };
+
     let profileId: string;
     if (existingProfile) {
       await prisma.companyProfile.update({
         where: { id: existingProfile.id },
-        data: {
-          companyName: c.companyName,
-          slug: c.slug,
-          approvalStatus: c.approvalStatus,
-          industry: c.industry,
-          programTag: c.programTag,
-          shortDescription: c.shortDescription,
-          createdAt: stamp,
-          updatedAt: stamp,
-        },
+        data: companyData,
       });
       profileId = existingProfile.id;
     } else {
       const created = await prisma.companyProfile.create({
-        data: {
-          userId: user.id,
-          companyName: c.companyName,
-          slug: c.slug,
-          approvalStatus: c.approvalStatus,
-          industry: c.industry,
-          programTag: c.programTag,
-          shortDescription: c.shortDescription,
-          createdAt: stamp,
-          updatedAt: stamp,
-        },
+        data: { userId: user.id, ...companyData },
         select: { id: true },
       });
       profileId = created.id;

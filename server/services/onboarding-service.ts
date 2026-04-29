@@ -1,5 +1,6 @@
 import "server-only";
 
+import { calculateCompanyCompleteness } from "@/lib/companies/completeness";
 import { prisma } from "@/lib/db/client";
 import type { UserRole } from "@/lib/db/generated/enums";
 
@@ -45,20 +46,32 @@ export async function needsStudentOnboarding(
  * True iff the company should be sent through onboarding rather than the
  * normal dashboard.
  *
- * The rule: profile missing OR `companyName` empty. We deliberately do
- * NOT include `approvalStatus` here — a PENDING company has finished
- * onboarding; they're just waiting for admin review. That state is
- * surfaced on the dashboard itself.
+ * The rule defers to `calculateCompanyCompleteness` so onboarding,
+ * the dashboard self-redirect, and the completeness meter all agree
+ * on a single contract.
+ *
+ * `approvalStatus` is intentionally NOT part of this check — a PENDING
+ * company has finished onboarding; they're just waiting for admin
+ * review. That state is surfaced on the dashboard itself.
  */
 export async function needsCompanyOnboarding(
   userId: string,
 ): Promise<boolean> {
   const profile = await prisma.companyProfile.findFirst({
     where: { userId, deletedAt: null },
-    select: { companyName: true },
+    select: {
+      companyName: true,
+      slug: true,
+      industry: true,
+      companySize: true,
+      headquarters: true,
+      shortDescription: true,
+      description: true,
+      contactEmail: true,
+    },
   });
   if (!profile) return true;
-  return profile.companyName.trim().length === 0;
+  return !calculateCompanyCompleteness(profile).isComplete;
 }
 
 /**
