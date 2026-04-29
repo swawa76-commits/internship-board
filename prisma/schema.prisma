@@ -1,0 +1,12 @@
+// Prisma schema for the V1 internship job board.
+// Models are added in Task 2.
+// Connection URL is loaded from .env via prisma.config.ts.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/db/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}

@@ -1,0 +1,10 @@
+node_modules
+.next
+dist
+build
+coverage
+test-results
+playwright-report
+blob-report
+lib/db/generated
+package-lock.json
