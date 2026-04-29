@@ -53,3 +53,6 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Local storage adapter writes here in development
+/storage-uploads/
