@@ -51,6 +51,8 @@ type CompanySeed = {
   industry: string;
   programTag: string;
   shortDescription: string;
+  /** Days ago this company signed up — used to stagger createdAt/updatedAt. */
+  signedUpDaysAgo: number;
 };
 
 type StudentSeed = {
@@ -61,6 +63,14 @@ type StudentSeed = {
   graduationYear: number;
   programTag: string;
   skills: string[];
+  /** Days ago this student signed up — used to stagger createdAt/updatedAt. */
+  signedUpDaysAgo: number;
+  /**
+   * Whether the profile is "complete." 7 of 10 are complete; 3 are
+   * incomplete so the admin "needs attention" widgets in Task 15 have
+   * realistic data.
+   */
+  isProfileComplete: boolean;
 };
 
 type JobPostingSeed = {
@@ -73,6 +83,8 @@ type JobPostingSeed = {
   status: "DRAFT" | "PUBLISHED" | "PAUSED" | "CLOSED" | "ARCHIVED";
   programTag: string;
   publishedDaysAgo?: number;
+  /** Days ago this posting was created — used to stagger createdAt/updatedAt. */
+  createdDaysAgo: number;
 };
 
 type ApplicationSeed = {
@@ -92,6 +104,7 @@ const COMPANIES: CompanySeed[] = [
     industry: "Robotics",
     programTag: PROGRAM_TAGS[0],
     shortDescription: "Industrial automation built for small factories.",
+    signedUpDaysAgo: 75,
   },
   {
     email: "globex@example.test",
@@ -101,6 +114,7 @@ const COMPANIES: CompanySeed[] = [
     industry: "Healthcare",
     programTag: PROGRAM_TAGS[1],
     shortDescription: "Tools for community clinics.",
+    signedUpDaysAgo: 12,
   },
   {
     email: "initech@example.test",
@@ -110,12 +124,19 @@ const COMPANIES: CompanySeed[] = [
     industry: "Enterprise SaaS",
     programTag: PROGRAM_TAGS[2],
     shortDescription: "Internal IT for mid-sized firms.",
+    signedUpDaysAgo: 88,
   },
 ];
+
+// Spread signups across ~90 days and mark indices 7, 8, 9 (0-based) as
+// incomplete so the admin dashboard has 7 complete / 3 incomplete profiles.
+const STUDENT_SIGNUP_DAYS_AGO = [85, 78, 65, 52, 40, 28, 18, 11, 6, 2];
+const INCOMPLETE_STUDENT_INDICES = new Set([7, 8, 9]);
 
 const STUDENTS: StudentSeed[] = Array.from({ length: 10 }).map((_, i) => {
   const idx = i + 1;
   const programTag = PROGRAM_TAGS[i % PROGRAM_TAGS.length];
+  const isProfileComplete = !INCOMPLETE_STUDENT_INDICES.has(i);
   return {
     email: `student${String(idx).padStart(2, "0")}@example.test`,
     fullName: `Student ${idx} Test`,
@@ -134,11 +155,14 @@ const STUDENTS: StudentSeed[] = Array.from({ length: 10 }).map((_, i) => {
       ["CAD", "MATLAB"],
       ["Figma", "User research"],
     ][i % 4],
+    signedUpDaysAgo: STUDENT_SIGNUP_DAYS_AGO[i],
+    isProfileComplete,
   };
 });
 
 const JOB_POSTINGS: JobPostingSeed[] = [
   // Acme Robotics (APPROVED) — 6 postings, mostly published.
+  // createdDaysAgo is always >= publishedDaysAgo (you can't publish before creating).
   {
     companyEmail: "acme@example.test",
     slug: "robotics-controls-intern",
@@ -150,6 +174,7 @@ const JOB_POSTINGS: JobPostingSeed[] = [
     status: "PUBLISHED",
     programTag: PROGRAM_TAGS[0],
     publishedDaysAgo: 30,
+    createdDaysAgo: 35,
   },
   {
     companyEmail: "acme@example.test",
@@ -162,6 +187,7 @@ const JOB_POSTINGS: JobPostingSeed[] = [
     status: "PUBLISHED",
     programTag: PROGRAM_TAGS[0],
     publishedDaysAgo: 21,
+    createdDaysAgo: 25,
   },
   {
     companyEmail: "acme@example.test",
@@ -174,6 +200,7 @@ const JOB_POSTINGS: JobPostingSeed[] = [
     status: "PUBLISHED",
     programTag: PROGRAM_TAGS[3],
     publishedDaysAgo: 14,
+    createdDaysAgo: 17,
   },
   {
     companyEmail: "acme@example.test",
@@ -186,6 +213,7 @@ const JOB_POSTINGS: JobPostingSeed[] = [
     status: "PUBLISHED",
     programTag: PROGRAM_TAGS[2],
     publishedDaysAgo: 7,
+    createdDaysAgo: 9,
   },
   {
     companyEmail: "acme@example.test",
@@ -198,6 +226,7 @@ const JOB_POSTINGS: JobPostingSeed[] = [
     status: "PAUSED",
     programTag: PROGRAM_TAGS[0],
     publishedDaysAgo: 45,
+    createdDaysAgo: 50,
   },
   {
     companyEmail: "acme@example.test",
@@ -209,6 +238,7 @@ const JOB_POSTINGS: JobPostingSeed[] = [
       "Travel with our field engineers and learn how installations actually go.",
     status: "DRAFT",
     programTag: PROGRAM_TAGS[1],
+    createdDaysAgo: 3,
   },
 
   // Globex Health (PENDING) — 3 postings; none publicly visible per CLAUDE.md.
@@ -223,6 +253,7 @@ const JOB_POSTINGS: JobPostingSeed[] = [
     status: "PUBLISHED",
     programTag: PROGRAM_TAGS[1],
     publishedDaysAgo: 10,
+    createdDaysAgo: 11,
   },
   {
     companyEmail: "globex@example.test",
@@ -235,6 +266,7 @@ const JOB_POSTINGS: JobPostingSeed[] = [
     status: "PUBLISHED",
     programTag: PROGRAM_TAGS[3],
     publishedDaysAgo: 5,
+    createdDaysAgo: 8,
   },
   {
     companyEmail: "globex@example.test",
@@ -245,6 +277,7 @@ const JOB_POSTINGS: JobPostingSeed[] = [
     description: "Help us scale our video-visit infrastructure.",
     status: "DRAFT",
     programTag: PROGRAM_TAGS[1],
+    createdDaysAgo: 1,
   },
 
   // Initech Systems (SUSPENDED) — 3 postings; should not be publicly visible.
@@ -258,6 +291,7 @@ const JOB_POSTINGS: JobPostingSeed[] = [
     status: "PUBLISHED",
     programTag: PROGRAM_TAGS[2],
     publishedDaysAgo: 60,
+    createdDaysAgo: 65,
   },
   {
     companyEmail: "initech@example.test",
@@ -269,6 +303,7 @@ const JOB_POSTINGS: JobPostingSeed[] = [
     status: "PUBLISHED",
     programTag: PROGRAM_TAGS[2],
     publishedDaysAgo: 40,
+    createdDaysAgo: 45,
   },
   {
     companyEmail: "initech@example.test",
@@ -280,6 +315,7 @@ const JOB_POSTINGS: JobPostingSeed[] = [
     status: "CLOSED",
     programTag: PROGRAM_TAGS[2],
     publishedDaysAgo: 90,
+    createdDaysAgo: 95,
   },
 ];
 
@@ -403,7 +439,11 @@ async function upsertUser(opts: {
   email: string;
   passwordHash: string;
   role: "ADMIN" | "STUDENT" | "COMPANY";
+  /** Days ago this user signed up. Stamped onto createdAt + updatedAt. */
+  signedUpDaysAgo?: number;
 }): Promise<{ id: string }> {
+  const stamp = opts.signedUpDaysAgo != null ? daysAgo(opts.signedUpDaysAgo) : null;
+
   // findFirst against active rows so soft-deleted lookalikes don't collide.
   const existing = await prisma.user.findFirst({
     where: { email: opts.email, deletedAt: null },
@@ -412,7 +452,13 @@ async function upsertUser(opts: {
   if (existing) {
     await prisma.user.update({
       where: { id: existing.id },
-      data: { passwordHash: opts.passwordHash, role: opts.role },
+      data: {
+        passwordHash: opts.passwordHash,
+        role: opts.role,
+        // Re-stamp on every seed run so the dataset stays time-coherent
+        // even after re-seeding weeks later.
+        ...(stamp ? { createdAt: stamp, updatedAt: stamp } : {}),
+      },
     });
     return existing;
   }
@@ -421,6 +467,7 @@ async function upsertUser(opts: {
       email: opts.email,
       passwordHash: opts.passwordHash,
       role: opts.role,
+      ...(stamp ? { createdAt: stamp, updatedAt: stamp } : {}),
     },
     select: { id: true },
   });
@@ -429,11 +476,12 @@ async function upsertUser(opts: {
 async function main(): Promise<void> {
   const passwordHash = await hashPassword(SHARED_DEV_PASSWORD);
 
-  // ---- Admin ----
+  // ---- Admin (oldest account; existed before any seeded company) ----
   const admin = await upsertUser({
     email: "admin@example.test",
     passwordHash,
     role: "ADMIN",
+    signedUpDaysAgo: 90,
   });
 
   // ---- Companies ----
@@ -447,8 +495,10 @@ async function main(): Promise<void> {
       email: c.email,
       passwordHash,
       role: "COMPANY",
+      signedUpDaysAgo: c.signedUpDaysAgo,
     });
 
+    const stamp = daysAgo(c.signedUpDaysAgo);
     const existingProfile = await prisma.companyProfile.findFirst({
       where: { userId: user.id, deletedAt: null },
       select: { id: true },
@@ -465,6 +515,8 @@ async function main(): Promise<void> {
           industry: c.industry,
           programTag: c.programTag,
           shortDescription: c.shortDescription,
+          createdAt: stamp,
+          updatedAt: stamp,
         },
       });
       profileId = existingProfile.id;
@@ -478,6 +530,8 @@ async function main(): Promise<void> {
           industry: c.industry,
           programTag: c.programTag,
           shortDescription: c.shortDescription,
+          createdAt: stamp,
+          updatedAt: stamp,
         },
         select: { id: true },
       });
@@ -500,7 +554,32 @@ async function main(): Promise<void> {
       email: s.email,
       passwordHash,
       role: "STUDENT",
+      signedUpDaysAgo: s.signedUpDaysAgo,
     });
+
+    const stamp = daysAgo(s.signedUpDaysAgo);
+
+    // Incomplete profiles get only the bare-minimum required fields
+    // populated. This mirrors how a real onboarding-in-progress student
+    // would look, and exercises the "needs attention" admin widgets.
+    const fullProfileFields = {
+      fullName: s.fullName,
+      university: s.university,
+      major: s.major,
+      graduationYear: s.graduationYear,
+      programTag: s.programTag,
+    };
+    const minimalProfileFields = {
+      // `fullName` is required (non-null in schema), so we still set it.
+      fullName: s.fullName,
+      university: null,
+      major: null,
+      graduationYear: null,
+      programTag: s.programTag,
+    };
+    const profileFields = s.isProfileComplete
+      ? fullProfileFields
+      : minimalProfileFields;
 
     const existingProfile = await prisma.studentProfile.findUnique({
       where: { userId: user.id },
@@ -512,12 +591,10 @@ async function main(): Promise<void> {
       await prisma.studentProfile.update({
         where: { id: existingProfile.id },
         data: {
-          fullName: s.fullName,
-          university: s.university,
-          major: s.major,
-          graduationYear: s.graduationYear,
-          programTag: s.programTag,
-          isProfileComplete: true,
+          ...profileFields,
+          isProfileComplete: s.isProfileComplete,
+          createdAt: stamp,
+          updatedAt: stamp,
         },
       });
       profileId = existingProfile.id;
@@ -525,25 +602,26 @@ async function main(): Promise<void> {
       const created = await prisma.studentProfile.create({
         data: {
           userId: user.id,
-          fullName: s.fullName,
-          university: s.university,
-          major: s.major,
-          graduationYear: s.graduationYear,
-          programTag: s.programTag,
-          isProfileComplete: true,
+          ...profileFields,
+          isProfileComplete: s.isProfileComplete,
+          createdAt: stamp,
+          updatedAt: stamp,
         },
         select: { id: true },
       });
       profileId = created.id;
     }
 
-    // Reset and re-create skills so the seed stays idempotent.
+    // Reset and re-create skills so the seed stays idempotent. Incomplete
+    // profiles have no skills yet.
     await prisma.studentSkill.deleteMany({
       where: { studentProfileId: profileId },
     });
-    await prisma.studentSkill.createMany({
-      data: s.skills.map((name) => ({ studentProfileId: profileId, name })),
-    });
+    if (s.isProfileComplete) {
+      await prisma.studentSkill.createMany({
+        data: s.skills.map((name) => ({ studentProfileId: profileId, name })),
+      });
+    }
 
     studentByEmail.set(s.email, {
       userId: user.id,
@@ -574,6 +652,10 @@ async function main(): Promise<void> {
       jp.status === "PUBLISHED" && jp.publishedDaysAgo != null
         ? daysAgo(jp.publishedDaysAgo)
         : null;
+    const createdAt = daysAgo(jp.createdDaysAgo);
+    // updatedAt should reflect the most recent meaningful change. For
+    // PUBLISHED postings that's publishedAt; otherwise it's createdAt.
+    const updatedAt = publishedAt ?? createdAt;
 
     let id: string;
     if (existing) {
@@ -587,6 +669,8 @@ async function main(): Promise<void> {
           status: jp.status,
           programTag: jp.programTag,
           publishedAt,
+          createdAt,
+          updatedAt,
         },
       });
       id = existing.id;
@@ -602,6 +686,8 @@ async function main(): Promise<void> {
           status: jp.status,
           programTag: jp.programTag,
           publishedAt,
+          createdAt,
+          updatedAt,
         },
         select: { id: true },
       });

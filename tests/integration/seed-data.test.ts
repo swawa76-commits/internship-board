@@ -101,6 +101,63 @@ describe.skipIf(skip)("seed data: row counts and core relations", () => {
     }
   });
 
+  it("has a mix of complete and incomplete student profiles", async () => {
+    // Required by the admin "needs attention" widgets in Task 15.
+    const [complete, incomplete] = await Promise.all([
+      prisma.studentProfile.count({ where: { isProfileComplete: true } }),
+      prisma.studentProfile.count({ where: { isProfileComplete: false } }),
+    ]);
+    expect(complete).toBeGreaterThan(0);
+    expect(incomplete).toBeGreaterThan(0);
+    // Concretely: the seed targets 7 complete and 3 incomplete out of 10.
+    expect(complete + incomplete).toBeGreaterThanOrEqual(10);
+  });
+
+  it("staggers user createdAt across at least 30 days", async () => {
+    // Required for the admin dashboard's 7/30/90-day filters in Task 15.
+    const oldest = await prisma.user.findFirst({
+      orderBy: { createdAt: "asc" },
+      select: { createdAt: true },
+    });
+    const newest = await prisma.user.findFirst({
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    });
+    const spreadDays =
+      ((newest?.createdAt.getTime() ?? 0) -
+        (oldest?.createdAt.getTime() ?? 0)) /
+      (1000 * 60 * 60 * 24);
+    expect(spreadDays).toBeGreaterThan(30);
+  });
+
+  it("staggers job posting createdAt across at least 30 days", async () => {
+    const oldest = await prisma.jobPosting.findFirst({
+      orderBy: { createdAt: "asc" },
+      select: { createdAt: true },
+    });
+    const newest = await prisma.jobPosting.findFirst({
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    });
+    const spreadDays =
+      ((newest?.createdAt.getTime() ?? 0) -
+        (oldest?.createdAt.getTime() ?? 0)) /
+      (1000 * 60 * 60 * 24);
+    expect(spreadDays).toBeGreaterThan(30);
+  });
+
+  it("never sets a job posting publishedAt before its createdAt", async () => {
+    const inverted = await prisma.jobPosting.findMany({
+      where: { publishedAt: { not: null } },
+      select: { createdAt: true, publishedAt: true, slug: true },
+    });
+    for (const jp of inverted) {
+      expect(jp.publishedAt!.getTime()).toBeGreaterThanOrEqual(
+        jp.createdAt.getTime(),
+      );
+    }
+  });
+
   it("uses multiple distinct programTag values", async () => {
     const tags = await prisma.companyProfile.findMany({
       where: { programTag: { not: null }, deletedAt: null },
