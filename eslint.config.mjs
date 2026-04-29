@@ -7,6 +7,15 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   prettier,
+  {
+    // Tests pragmatically use `as any` to construct partial fixtures for
+    // framework callbacks (Auth.js, etc.) without rebuilding the whole
+    // runtime context. App code keeps the strict rule.
+    files: ["tests/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
   globalIgnores([
     ".next/**",
     "out/**",
