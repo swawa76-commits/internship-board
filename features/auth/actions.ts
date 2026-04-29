@@ -6,18 +6,22 @@ import { redirect } from "next/navigation";
 import { signIn, signOut } from "@/lib/auth";
 import { loginSchema, signupSchema } from "@/features/auth/schemas";
 import { createUserWithCredentials } from "@/server/services/auth-service";
-import type { UserRole } from "@/lib/db/generated/enums";
 
 export type AuthFormState =
   | { status: "idle" }
   | { status: "error"; message: string }
   | { status: "ok" };
 
-const DASHBOARD_BY_ROLE: Record<UserRole, string> = {
-  STUDENT: "/student/dashboard",
-  COMPANY: "/company/dashboard",
-  ADMIN: "/admin",
-};
+/**
+ * Where to send a freshly-signed-up user. We always send them through
+ * onboarding because we know on creation that no profile row exists yet;
+ * `decideLandingFor` would arrive at the same answer with an extra DB
+ * round-trip.
+ */
+const ONBOARDING_BY_SIGNUP_ROLE = {
+  STUDENT: "/student/onboarding",
+  COMPANY: "/company/onboarding",
+} as const;
 
 export async function signupAction(
   _prev: AuthFormState,
@@ -63,7 +67,7 @@ export async function signupAction(
     throw err;
   }
 
-  redirect(DASHBOARD_BY_ROLE[parsed.data.role]);
+  redirect(ONBOARDING_BY_SIGNUP_ROLE[parsed.data.role]);
 }
 
 export async function loginAction(
