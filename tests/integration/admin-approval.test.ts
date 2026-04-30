@@ -410,6 +410,70 @@ describe.skipIf(skip)("visibility-service · publicJobPostingVisibilityWhere", (
     expect(visibleIds.has(s.id)).toBe(false);
   });
 
+  it("filters out a published posting whose APPROVED company has been soft-deleted", async () => {
+    // Soft-delete leakage check: even with an APPROVED status and a
+    // PUBLISHED posting, a soft-deleted company must not appear in the
+    // public visibility fragment.
+    const adminId = await makeAdmin("vis-soft-co");
+    const co = await makeCompany("vis-soft-co");
+    await setCompanyApprovalStatus(adminId, co.companyProfileId, "APPROVED");
+
+    const posting = await prisma.jobPosting.create({
+      data: {
+        companyProfileId: co.companyProfileId,
+        slug: `${RUN_ID}-soft-co-posting`,
+        title: "Posting under soft-deleted co",
+        workplaceType: "REMOTE",
+        description: "x",
+        status: "PUBLISHED",
+        publishedAt: new Date(),
+      },
+    });
+
+    // Visible while the company is alive.
+    let visible = await prisma.jobPosting.findMany({
+      where: { ...publicJobPostingVisibilityWhere(), id: posting.id },
+      select: { id: true },
+    });
+    expect(visible).toHaveLength(1);
+
+    // Soft-delete the company; posting must drop out of the fragment.
+    await prisma.companyProfile.update({
+      where: { id: co.companyProfileId },
+      data: { deletedAt: new Date() },
+    });
+    visible = await prisma.jobPosting.findMany({
+      where: { ...publicJobPostingVisibilityWhere(), id: posting.id },
+      select: { id: true },
+    });
+    expect(visible).toHaveLength(0);
+  });
+
+  it("filters out a soft-deleted posting even when the company is APPROVED and live", async () => {
+    const adminId = await makeAdmin("vis-soft-posting");
+    const co = await makeCompany("vis-soft-posting");
+    await setCompanyApprovalStatus(adminId, co.companyProfileId, "APPROVED");
+
+    const posting = await prisma.jobPosting.create({
+      data: {
+        companyProfileId: co.companyProfileId,
+        slug: `${RUN_ID}-soft-posting`,
+        title: "Soft-deleted posting",
+        workplaceType: "REMOTE",
+        description: "x",
+        status: "PUBLISHED",
+        publishedAt: new Date(),
+        deletedAt: new Date(),
+      },
+    });
+
+    const visible = await prisma.jobPosting.findMany({
+      where: { ...publicJobPostingVisibilityWhere(), id: posting.id },
+      select: { id: true },
+    });
+    expect(visible).toHaveLength(0);
+  });
+
   it("filters out non-PUBLISHED postings even from APPROVED companies", async () => {
     const adminId = await makeAdmin("status-filter");
     const co = await makeCompany("status-filter");

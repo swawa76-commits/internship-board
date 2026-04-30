@@ -40,4 +40,18 @@ export async function setCompanyApprovalAction(
 
   revalidatePath("/admin/companies");
   revalidatePath("/admin");
+
+  // Cross-role invalidation: the affected company's surfaces all show
+  // approval state. We revalidate `/company` as a layout so the
+  // dashboard, profile, and onboarding pages all re-fetch fresh status
+  // on the company's next navigation. We don't know which company-user
+  // is affected at action time, so we invalidate the layout for the
+  // whole protected group; unrelated companies pay only a cheap re-render.
+  revalidatePath("/company", "layout");
+
+  // The public job-postings list/detail filter on company status, so
+  // an APPROVED → SUSPENDED flip must hide the company's postings, and
+  // the reverse must reveal them. Revalidate the public surfaces too.
+  revalidatePath("/job-postings");
+  revalidatePath("/", "layout");
 }
