@@ -14,18 +14,44 @@ import { storage } from "@/server/adapters/storage";
  * This is deliberately separate from the resume read route, which is
  * private and owner-gated. Different policies, different routes — the
  * URL itself tells you which is which.
+ *
+ * Defense in depth: the route validates the key *shape* itself rather
+ * than relying on any one storage adapter to do so. The shape we trust
+ * is exactly `logos/<uuid>.<short-extension>`. Anything else is 404.
+ * Future cloud adapters can't accidentally widen the surface.
  */
+
+const LOGO_KEY_SHAPE =
+  /^logos\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,8}$/i;
+
+const ALLOWED_LOGO_CONTENT_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/svg+xml",
+]);
+
 export async function GET(
   _req: Request,
   ctx: { params: Promise<{ key: string }> },
 ) {
   const { key: encoded } = await ctx.params;
-  const storageKey = decodeURIComponent(encoded);
 
-  // Defense in depth: even though anyone can hit this route, we only
-  // serve from the `logos/` prefix. A malicious URL of
-  // `/api/files/logo/resumes%2Fxxx.pdf` should not serve a resume.
-  if (!storageKey.startsWith("logos/")) {
+  let storageKey: string;
+  try {
+    storageKey = decodeURIComponent(encoded);
+  } catch {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  // Hard reject anything that isn't the exact logos key shape.
+  // This blocks:
+  //  - resumes/* (different prefix)
+  //  - logos/../anything (the regex doesn't allow `.`)
+  //  - logos/<not-a-uuid>
+  //  - logos/<uuid>.<unsafe-ext>
+  //  - keys with embedded path separators or null bytes
+  if (!LOGO_KEY_SHAPE.test(storageKey)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
@@ -38,6 +64,13 @@ export async function GET(
 
   if (result.kind === "redirect") {
     return NextResponse.redirect(result.url);
+  }
+
+  // Belt-and-braces content-type check: even though the key shape
+  // already constrains the file extension, we refuse to serve anything
+  // the storage layer didn't classify as an image type.
+  if (!ALLOWED_LOGO_CONTENT_TYPES.has(result.contentType)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
   return new NextResponse(new Uint8Array(result.bytes), {

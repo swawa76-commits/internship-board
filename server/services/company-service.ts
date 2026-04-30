@@ -109,36 +109,58 @@ export async function upsertCompanyProfile(
     programTag: input.programTag,
   };
 
-  let companyProfileId: string;
-  try {
-    if (existing) {
-      const updated = await prisma.companyProfile.update({
-        where: { id: existing.id },
-        data,
-        select: { id: true },
-      });
-      companyProfileId = updated.id;
-    } else {
-      const created = await prisma.companyProfile.create({
-        // approvalStatus intentionally NOT specified — schema default
-        // (PENDING) applies on creation; updates leave it untouched.
-        data: { userId, ...data },
-        select: { id: true },
-      });
-      companyProfileId = created.id;
-    }
-  } catch (err: unknown) {
-    // Race: two requests grabbing the same slug at once. Re-resolve and
-    // retry once.
-    if (
+  function isSlugCollision(err: unknown): boolean {
+    return (
       typeof err === "object" &&
       err !== null &&
       "code" in err &&
       (err as { code?: unknown }).code === "P2002"
-    ) {
-      return { ok: false, reason: "slug_taken" };
+    );
+  }
+
+  let companyProfileId: string;
+  if (existing) {
+    // Update path: slug doesn't change on edits, so a P2002 here would
+    // mean something genuinely unexpected — surface it.
+    const updated = await prisma.companyProfile.update({
+      where: { id: existing.id },
+      data,
+      select: { id: true },
+    });
+    companyProfileId = updated.id;
+  } else {
+    // Create path: under concurrency, two parallel signups can both
+    // resolve the same fresh slug from `ensureUniqueSlug` before either
+    // commits. The DB unique index catches it; we re-resolve and retry
+    // a small bounded number of times so the user-facing flow recovers
+    // transparently. Only after persistent collisions do we surface
+    // `slug_taken`.
+    const MAX_RETRIES = 5;
+    let attempt = 0;
+    let createInput = { userId, ...data };
+    while (true) {
+      try {
+        const created = await prisma.companyProfile.create({
+          // approvalStatus intentionally NOT specified — schema default
+          // (PENDING) applies on creation; updates leave it untouched.
+          data: createInput,
+          select: { id: true },
+        });
+        companyProfileId = created.id;
+        break;
+      } catch (err: unknown) {
+        if (!isSlugCollision(err)) throw err;
+        attempt++;
+        if (attempt >= MAX_RETRIES) {
+          return { ok: false, reason: "slug_taken" };
+        }
+        // Re-resolve with the now-conflicting active rows in mind.
+        const nextSlug = await ensureUniqueSlug(
+          slugifyCompanyName(input.companyName),
+        );
+        createInput = { ...createInput, slug: nextSlug };
+      }
     }
-    throw err;
   }
 
   const fresh = await prisma.companyProfile.findUniqueOrThrow({

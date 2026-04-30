@@ -126,6 +126,39 @@ describe.skipIf(skip)("upsertCompanyProfile · create + edit", () => {
     expect(profileA?.slug).toBe("twin-co");
     expect(profileB?.slug).toBe("twin-co-2");
   });
+
+  it("transparently retries on a slug race when parallel saves collide", async () => {
+    // Simulate a true race: both callers slugify to "race-co" and call
+    // ensureUniqueSlug at roughly the same time. The DB unique index
+    // catches the second commit; the service must re-resolve + retry
+    // rather than surfacing slug_taken.
+    const userA = await makeCompany("race-a");
+    const userB = await makeCompany("race-b");
+    const [a, b] = await Promise.all([
+      upsertCompanyProfile(userA, {
+        ...COMPLETE_INPUT,
+        companyName: "Race Co",
+      }),
+      upsertCompanyProfile(userB, {
+        ...COMPLETE_INPUT,
+        companyName: "Race Co",
+      }),
+    ]);
+    expect(a.ok).toBe(true);
+    expect(b.ok).toBe(true);
+
+    const slugs = await prisma.companyProfile.findMany({
+      where: {
+        userId: { in: [userA, userB] },
+        deletedAt: null,
+      },
+      select: { slug: true },
+    });
+    const slugSet = new Set(slugs.map((s) => s.slug));
+    expect(slugSet.size).toBe(2); // distinct
+    expect(slugSet.has("race-co")).toBe(true);
+    expect([...slugSet].some((s) => /^race-co-\d+$/.test(s))).toBe(true);
+  });
 });
 
 describe.skipIf(skip)("upsertCompanyProfile · approvalStatus invariance", () => {
