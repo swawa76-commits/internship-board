@@ -54,7 +54,7 @@ export default async function CompanyDashboardPage() {
         <DashboardCard
           title="Job postings"
           description="Draft, publish, and manage your internship postings."
-          ctaHref="/company/job-postings"
+          ctaHref="/company/jobs"
           ctaLabel="Manage postings"
         />
         <DashboardCard

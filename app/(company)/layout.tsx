@@ -23,7 +23,7 @@ export default function CompanyRouteLayout({
             <Link className="hover:text-foreground" href="/company/dashboard">
               Dashboard
             </Link>
-            <Link className="hover:text-foreground" href="/company/job-postings">
+            <Link className="hover:text-foreground" href="/company/jobs">
               Postings
             </Link>
             <Link className="hover:text-foreground" href="/company/applications">
