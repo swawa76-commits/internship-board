@@ -57,7 +57,7 @@ export default async function StudentDashboardPage() {
       <section className="mx-auto w-full max-w-5xl">
         <p className="text-sm text-muted-foreground">
           Looking for new internships?{" "}
-          <Link className="font-medium text-foreground hover:underline" href="/job-postings">
+          <Link className="font-medium text-foreground hover:underline" href="/jobs">
             Browse open postings →
           </Link>
         </p>

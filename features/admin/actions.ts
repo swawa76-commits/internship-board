@@ -49,9 +49,10 @@ export async function setCompanyApprovalAction(
   // whole protected group; unrelated companies pay only a cheap re-render.
   revalidatePath("/company", "layout");
 
-  // The public job-postings list/detail filter on company status, so
-  // an APPROVED → SUSPENDED flip must hide the company's postings, and
-  // the reverse must reveal them. Revalidate the public surfaces too.
-  revalidatePath("/job-postings");
+  // The public job list/detail filters on company status, so an
+  // APPROVED → SUSPENDED flip must hide the company's postings (and
+  // the reverse must reveal them). Revalidate the public surfaces too.
+  revalidatePath("/jobs");
+  revalidatePath("/companies", "layout");
   revalidatePath("/", "layout");
 }

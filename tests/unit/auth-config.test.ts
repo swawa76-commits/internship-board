@@ -65,7 +65,7 @@ describe("authConfig.callbacks.session", () => {
 describe("authConfig.callbacks.authorized (middleware gate)", () => {
   it("allows public pages even when unauthenticated", () => {
     const result = callbacks.authorized!({
-      ...makeReq("/job-postings"),
+      ...makeReq("/jobs"),
     } as any);
     expect(result).toBe(true);
   });

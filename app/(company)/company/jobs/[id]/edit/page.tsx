@@ -28,12 +28,39 @@ export default async function EditJobPostingPage({
   const posting = await getJobPostingByIdForCompany(user.id, id);
   if (!posting) notFound();
 
+  // V1 form scope: companies edit DRAFT and PUBLISHED postings only.
+  // Postings sitting in PAUSED, CLOSED, or ARCHIVED are managed by
+  // future workflows (admin tools or status-transition actions). Render
+  // a read-only notice instead of silently letting Save downgrade the
+  // status to DRAFT — that would be quiet data loss.
+  if (posting.status !== "DRAFT" && posting.status !== "PUBLISHED") {
+    return (
+      <main className="flex flex-1 flex-col gap-6 px-6 py-12">
+        <header className="mx-auto w-full max-w-3xl space-y-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Edit posting
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {posting.title}
+          </h1>
+        </header>
+        <section className="mx-auto w-full max-w-3xl rounded-lg border border-border bg-card p-6">
+          <p
+            role="status"
+            className="text-sm text-muted-foreground"
+          >
+            This posting is currently <b>{posting.status}</b>. The V1
+            self-serve form supports DRAFT and PUBLISHED only. Postings
+            in other states are managed by an admin — reach out if you
+            need this one moved.
+          </p>
+        </section>
+      </main>
+    );
+  }
+
   const approvalStatus = await getFreshCompanyApprovalStatus(user.id);
 
-  // Coerce DB nulls + dates into the string-based defaults the form
-  // needs. Statuses other than DRAFT/PUBLISHED — postings flipped to
-  // PAUSED/CLOSED/ARCHIVED by future workflows — show up here as their
-  // raw value but the form's status select limits user transitions.
   const defaults: JobPostingFormDefaults = {
     title: posting.title,
     department: posting.department ?? "",
@@ -52,13 +79,7 @@ export default async function EditJobPostingPage({
     qualifications: posting.qualifications ?? "",
     applicationDeadline: isoDateOrEmpty(posting.applicationDeadline),
     programTag: posting.programTag ?? "",
-    // Edits in the V1 UI move between DRAFT and PUBLISHED. A posting
-    // that was previously moved to PAUSED/CLOSED/ARCHIVED via a future
-    // admin tool falls back to DRAFT for safety.
-    status:
-      posting.status === "PUBLISHED" || posting.status === "DRAFT"
-        ? posting.status
-        : "DRAFT",
+    status: posting.status,
   };
 
   return (

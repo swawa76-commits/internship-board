@@ -30,7 +30,7 @@ export default function StudentRouteLayout({
             <Link className="hover:text-foreground" href="/student/saved-job-postings">
               Saved
             </Link>
-            <Link className="hover:text-foreground" href="/job-postings">
+            <Link className="hover:text-foreground" href="/jobs">
               Browse
             </Link>
           </nav>

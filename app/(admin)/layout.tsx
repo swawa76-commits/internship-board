@@ -23,7 +23,7 @@ export default function AdminRouteLayout({
             <Link className="hover:text-foreground" href="/admin/companies">
               Companies
             </Link>
-            <Link className="hover:text-foreground" href="/admin/job-postings">
+            <Link className="hover:text-foreground" href="/admin/jobs">
               Postings
             </Link>
             <Link className="hover:text-foreground" href="/admin/students">

@@ -19,7 +19,7 @@ export default function HomePage() {
         </p>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button asChild size="lg">
-            <Link href="/job-postings">Browse internships</Link>
+            <Link href="/jobs">Browse internships</Link>
           </Button>
           <Button asChild size="lg" variant="outline">
             <Link href="/signup">Create an account</Link>

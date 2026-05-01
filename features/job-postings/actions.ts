@@ -93,10 +93,13 @@ function parseSubmittedFormData(formData: FormData) {
 }
 
 function pathnamesToRevalidate() {
-  // The list, the dashboard, and (if the row is now PUBLISHED on an
-  // APPROVED company) the public listing all read postings.
+  // The company-side list, the dashboard, and (if the row is now
+  // PUBLISHED on an APPROVED company) the public surfaces all read
+  // postings. Revalidate broadly — the cost is cheap and the
+  // alternative is stale public-list rows.
   revalidatePath("/company", "layout");
-  revalidatePath("/job-postings");
+  revalidatePath("/jobs");
+  revalidatePath("/companies", "layout");
 }
 
 function errorState(

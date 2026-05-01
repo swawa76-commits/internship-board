@@ -43,7 +43,7 @@ export default async function AdminDashboardPage() {
         <AdminCard
           title="Job postings"
           description="Inspect postings across the platform and intervene when needed."
-          ctaHref="/admin/job-postings"
+          ctaHref="/admin/jobs"
           ctaLabel="Open postings"
         />
         <AdminCard

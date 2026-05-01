@@ -60,7 +60,7 @@ export function StudentOnboardingWelcome({
           </Link>
         </Button>
         <Button asChild size="lg" variant="ghost">
-          <Link href="/job-postings">Browse internships first</Link>
+          <Link href="/jobs">Browse internships first</Link>
         </Button>
       </div>
     </section>
