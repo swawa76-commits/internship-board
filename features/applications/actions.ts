@@ -7,10 +7,12 @@ import { requireRole } from "@/lib/auth/guards";
 import {
   applySchema,
   transitionApplicationStatusSchema,
+  withdrawApplicationSchema,
 } from "@/features/applications/schemas";
 import {
   submitApplication,
   transitionApplicationStatus,
+  withdrawApplicationByStudent,
   type CompanyTransition,
   type SubmitFailureReason,
 } from "@/server/services/application-service";
@@ -87,5 +89,24 @@ export async function transitionApplicationStatusAction(
   );
   revalidatePath("/company/applications");
   revalidatePath("/company", "layout");
+}
+
+/**
+ * Student-driven WITHDRAWN. Lives on /student/applications. The
+ * service rejects non-active rows so the button being clicked from a
+ * stale tab is harmless.
+ */
+export async function withdrawApplicationAction(
+  formData: FormData,
+): Promise<void> {
+  const user = await requireRole("STUDENT");
+  const parsed = withdrawApplicationSchema.safeParse({
+    applicationId: pickFormString(formData, "applicationId"),
+  });
+  if (!parsed.success) return;
+  await withdrawApplicationByStudent(user.id, parsed.data.applicationId);
+  revalidatePath("/student/applications");
+  revalidatePath("/student/dashboard");
+  revalidatePath("/student", "layout");
 }
 

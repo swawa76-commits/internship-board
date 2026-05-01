@@ -34,3 +34,7 @@ export const transitionApplicationStatusSchema = z.object({
   applicationId: z.string().cuid(),
   newStatus: z.enum(COMPANY_APPLICATION_STATUS_TARGETS),
 });
+
+export const withdrawApplicationSchema = z.object({
+  applicationId: z.string().cuid(),
+});

@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { FilterBar, type FilterBarValues } from "@/features/public-jobs/filter-bar";
 import { JobCard } from "@/features/public-jobs/job-card";
+import { getSessionUser } from "@/lib/auth/guards";
+import { prisma } from "@/lib/db/client";
 import type {
   CompensationType,
   InternshipTerm,
@@ -64,10 +66,33 @@ export default async function PublicJobsPage({
     compensationType,
   };
 
-  const [results, total] = await Promise.all([
+  const [results, total, viewer] = await Promise.all([
     searchPublicJobPostings(filters),
     countPublicJobPostings(filters),
+    getSessionUser(),
   ]);
+
+  // Resolve "is this posting saved by me?" in one query for the listed
+  // page, rather than N round-trips inside JobCard. Anonymous and non-
+  // student viewers get an empty set and the toggle is hidden.
+  let savedIds = new Set<string>();
+  if (viewer && viewer.role === "STUDENT" && results.length > 0) {
+    const profile = await prisma.studentProfile.findUnique({
+      where: { userId: viewer.id },
+      select: { id: true },
+    });
+    if (profile) {
+      const saved = await prisma.savedJobPosting.findMany({
+        where: {
+          studentProfileId: profile.id,
+          jobPostingId: { in: results.map((r) => r.id) },
+        },
+        select: { jobPostingId: true },
+      });
+      savedIds = new Set(saved.map((s) => s.jobPostingId));
+    }
+  }
+  const showSaveToggle = Boolean(viewer && viewer.role === "STUDENT");
 
   const filterValues: FilterBarValues = {
     q,
@@ -116,7 +141,14 @@ export default async function PublicJobsPage({
           <ul className="grid gap-4">
             {results.map((posting) => (
               <li key={posting.id}>
-                <JobCard posting={posting} />
+                <JobCard
+                  posting={posting}
+                  saveState={
+                    showSaveToggle
+                      ? { isSaved: savedIds.has(posting.id) }
+                      : undefined
+                  }
+                />
               </li>
             ))}
           </ul>

@@ -1,7 +1,12 @@
 import Link from "next/link";
 
+import { Button } from "@/components/ui/button";
+import { withdrawApplicationAction } from "@/features/applications/actions";
 import { requireRole } from "@/lib/auth/guards";
-import { listApplicationsForStudent } from "@/server/services/application-service";
+import {
+  ACTIVE_APPLICATION_STATUSES,
+  listApplicationsForStudent,
+} from "@/server/services/application-service";
 
 export const metadata = {
   title: "Your applications",
@@ -53,6 +58,7 @@ export default async function StudentApplicationsPage() {
                   <th className="px-3 py-2 font-medium">Posting</th>
                   <th className="px-3 py-2 font-medium">Status</th>
                   <th className="px-3 py-2 font-medium">Applied</th>
+                  <th className="px-3 py-2 font-medium" />
                 </tr>
               </thead>
               <tbody>
@@ -98,6 +104,22 @@ export default async function StudentApplicationsPage() {
                         month: "short",
                         day: "numeric",
                       })}
+                    </td>
+                    <td className="px-3 py-3 align-top text-right">
+                      {(ACTIVE_APPLICATION_STATUSES as ReadonlyArray<string>).includes(
+                        a.status,
+                      ) ? (
+                        <form action={withdrawApplicationAction}>
+                          <input
+                            type="hidden"
+                            name="applicationId"
+                            value={a.id}
+                          />
+                          <Button type="submit" size="sm" variant="ghost">
+                            Withdraw
+                          </Button>
+                        </form>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

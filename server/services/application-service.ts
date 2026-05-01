@@ -403,6 +403,65 @@ export async function transitionApplicationStatus(
   };
 }
 
+// ---------- Student-driven withdrawal ----------
+
+export type WithdrawResult =
+  | { ok: true; applicationId: string; from: ApplicationStatus }
+  | { ok: false; reason: "not_found" | "forbidden" | "not_active" };
+
+/**
+ * Student-driven WITHDRAWN transition. The student can pull themselves
+ * from any active status (APPLIED/IN_REVIEW/INTERVIEWING/OFFER). They
+ * cannot un-withdraw — the action is intentionally one-way; reapplying
+ * is blocked by the unique (jobPostingId, studentProfileId) constraint
+ * (Clarification 4: one application ever per student per posting).
+ *
+ * REJECTED is left alone — that's a closed-funnel terminal state owned
+ * by the company side.
+ */
+export async function withdrawApplicationByStudent(
+  studentUserId: string,
+  applicationId: string,
+): Promise<WithdrawResult> {
+  const profile = await prisma.studentProfile.findUnique({
+    where: { userId: studentUserId },
+    select: { id: true },
+  });
+  if (!profile) return { ok: false, reason: "forbidden" };
+
+  const application = await prisma.application.findFirst({
+    where: { id: applicationId, studentProfileId: profile.id },
+    select: { id: true, status: true },
+  });
+  if (!application) return { ok: false, reason: "not_found" };
+
+  if (
+    !(ACTIVE_APPLICATION_STATUSES as ReadonlyArray<string>).includes(
+      application.status,
+    )
+  ) {
+    return { ok: false, reason: "not_active" };
+  }
+
+  await prisma.$transaction([
+    prisma.application.update({
+      where: { id: application.id },
+      data: { status: "WITHDRAWN" },
+    }),
+    prisma.activityEvent.create({
+      data: {
+        type: "APPLICATION_STATUS_CHANGED",
+        actorUserId: studentUserId,
+        entityType: "Application",
+        entityId: application.id,
+        metadataJson: { from: application.status, to: "WITHDRAWN" },
+      },
+    }),
+  ]);
+
+  return { ok: true, applicationId: application.id, from: application.status };
+}
+
 /**
  * Permission check used by the snapshot resume read route. A company
  * can read the snapshot iff the application belongs to one of their

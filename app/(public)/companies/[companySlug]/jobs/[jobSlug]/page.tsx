@@ -2,12 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ApplyCta } from "@/features/public-jobs/apply-cta";
+import { SaveJobToggle } from "@/features/saved-job-postings/save-job-toggle";
 import { getSessionUser } from "@/lib/auth/guards";
 import { studentHasActiveApplication } from "@/server/services/application-service";
 import {
   getJobPostingBySlugsForBypass,
   getPublicJobPostingBySlugs,
 } from "@/server/services/public-job-search";
+import { isJobSavedByStudent } from "@/server/services/saved-job-service";
 
 export async function generateMetadata({
   params,
@@ -50,21 +52,21 @@ export default async function PublicJobDetailPage({
   // Public path: visibility rule passes — anyone can read.
   let posting = await getPublicJobPostingBySlugs(companySlug, jobSlug);
   let bypassedAsApplicant = false;
+  const viewer = await getSessionUser();
 
   if (!posting) {
     // Applicant-visibility bypass: a logged-in STUDENT with an active
     // application for this exact posting can still read the page even
     // if the posting is no longer publicly visible (paused, closed,
     // company suspended, etc.). Hard-deleted rows still 404.
-    const user = await getSessionUser();
-    if (user && user.role === "STUDENT") {
+    if (viewer && viewer.role === "STUDENT") {
       const candidate = await getJobPostingBySlugsForBypass(
         companySlug,
         jobSlug,
       );
       if (
         candidate &&
-        (await studentHasActiveApplication(user.id, candidate.id))
+        (await studentHasActiveApplication(viewer.id, candidate.id))
       ) {
         posting = candidate;
         bypassedAsApplicant = true;
@@ -72,6 +74,17 @@ export default async function PublicJobDetailPage({
     }
   }
   if (!posting) notFound();
+
+  // Save toggle is for logged-in students viewing a publicly visible
+  // posting. We deliberately hide it on the bypass surface — that
+  // surface is for already-applied students, where save semantics are
+  // moot.
+  const showSaveToggle =
+    Boolean(viewer && viewer.role === "STUDENT") && !bypassedAsApplicant;
+  const isSaved =
+    showSaveToggle && viewer
+      ? await isJobSavedByStudent(viewer.id, posting.id)
+      : false;
 
   const company = posting.companyProfile;
 
@@ -124,7 +137,16 @@ export default async function PublicJobDetailPage({
               {posting.duration ? <Tag>{posting.duration}</Tag> : null}
             </div>
           </div>
-          <ApplyCta jobPostingId={posting.id} />
+          <div className="flex flex-col items-stretch gap-3 sm:items-end">
+            {showSaveToggle ? (
+              <SaveJobToggle
+                jobPostingId={posting.id}
+                isSaved={isSaved}
+                size="default"
+              />
+            ) : null}
+            <ApplyCta jobPostingId={posting.id} />
+          </div>
         </header>
 
         {(posting.compensationMin != null ||

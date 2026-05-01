@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { SaveJobToggle } from "@/features/saved-job-postings/save-job-toggle";
 import type { PublicJobListItem } from "@/server/services/public-job-search";
 
 const TERM_LABEL: Record<NonNullable<PublicJobListItem["internshipTerm"]>, string> = {
@@ -10,7 +11,18 @@ const TERM_LABEL: Record<NonNullable<PublicJobListItem["internshipTerm"]>, strin
   YEAR_ROUND: "Year-round",
 };
 
-export function JobCard({ posting }: { posting: PublicJobListItem }) {
+/**
+ * `saveState` is rendered only for logged-in students. Anonymous
+ * visitors and company/admin users receive `undefined` and the toggle
+ * is hidden — keeps the card render path identical across roles.
+ */
+export function JobCard({
+  posting,
+  saveState,
+}: {
+  posting: PublicJobListItem;
+  saveState?: { isSaved: boolean };
+}) {
   const href = `/companies/${posting.company.companySlug}/jobs/${posting.jobSlug}`;
   return (
     <article className="rounded-md border border-border bg-card p-5 transition-colors hover:bg-accent/40">
@@ -26,11 +38,19 @@ export function JobCard({ posting }: { posting: PublicJobListItem }) {
           <div className="size-12 rounded-md border border-border bg-muted" />
         )}
         <div className="flex-1 space-y-1">
-          <h2 className="text-lg font-semibold">
-            <Link href={href} className="hover:underline">
-              {posting.title}
-            </Link>
-          </h2>
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-lg font-semibold">
+              <Link href={href} className="hover:underline">
+                {posting.title}
+              </Link>
+            </h2>
+            {saveState ? (
+              <SaveJobToggle
+                jobPostingId={posting.id}
+                isSaved={saveState.isSaved}
+              />
+            ) : null}
+          </div>
           <p className="text-sm text-muted-foreground">
             {posting.company.companyName}
             {posting.company.industry ? <> · {posting.company.industry}</> : null}
