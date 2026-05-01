@@ -9,7 +9,9 @@ import { jobPostingFormSchema } from "@/features/job-postings/schemas";
 import {
   createJobPosting,
   softDeleteJobPosting,
+  transitionJobPostingStatus,
   updateJobPosting,
+  type TransitionTarget,
 } from "@/server/services/job-posting-service";
 
 /**
@@ -203,5 +205,39 @@ export async function softDeleteJobPostingAction(
   const id = pickFormString(formData, "id");
   if (!z.string().cuid().safeParse(id).success) return;
   await softDeleteJobPosting(user.id, id);
+  pathnamesToRevalidate();
+}
+
+const TRANSITION_TARGETS = [
+  "PUBLISHED",
+  "PAUSED",
+  "CLOSED",
+  "ARCHIVED",
+] as const;
+
+const transitionSchema = z.object({
+  id: z.string().cuid(),
+  target: z.enum(TRANSITION_TARGETS),
+});
+
+/**
+ * Lifecycle transition action. Rejects silently on malformed input
+ * (caller is either misconfigured or tampering). Service does the
+ * publish-gate re-check on the PUBLISHED path.
+ */
+export async function transitionJobPostingAction(
+  formData: FormData,
+): Promise<void> {
+  const user = await requireRole("COMPANY");
+  const parsed = transitionSchema.safeParse({
+    id: pickFormString(formData, "id"),
+    target: pickFormString(formData, "target"),
+  });
+  if (!parsed.success) return;
+  await transitionJobPostingStatus(
+    user.id,
+    parsed.data.id,
+    parsed.data.target as TransitionTarget,
+  );
   pathnamesToRevalidate();
 }

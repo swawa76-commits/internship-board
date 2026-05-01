@@ -476,6 +476,28 @@ describe.skipIf(skip)("getPublicCompanyBySlug", () => {
     expect(await getPublicCompanyBySlug(co.companySlug)).toBeNull();
   });
 
+  it("returns an APPROVED company with zero PUBLISHED postings (empty state, not null)", async () => {
+    // Patch 3 invariant: a freshly-approved company with no postings
+    // must NOT 404. The page renders the profile + empty postings list.
+    const co = await makeApprovedCo("co-empty");
+    const r = await getPublicCompanyBySlug(co.companySlug);
+    expect(r).not.toBeNull();
+    expect(r?.jobPostings).toEqual([]);
+  });
+
+  it("returns an APPROVED company with only DRAFT postings (still no public postings)", async () => {
+    const co = await makeApprovedCo("co-only-drafts");
+    await createJobPosting(co.userId, {
+      ...POSTING_BASE,
+      title: "Drafts only",
+      description: "Body.",
+      status: "DRAFT",
+    });
+    const r = await getPublicCompanyBySlug(co.companySlug);
+    expect(r).not.toBeNull();
+    expect(r?.jobPostings).toEqual([]);
+  });
+
   it("does not include DRAFT postings on the company page", async () => {
     const co = await makeApprovedCo("co-mixed");
     await createJobPosting(co.userId, {

@@ -295,6 +295,78 @@ export async function updateJobPosting(
   return { ok: true, id: owned.postingId };
 }
 
+/**
+ * Lifecycle transitions a company can drive from the dashboard:
+ *
+ *   PUBLISHED → PAUSED  (temporarily hide while still recruiting)
+ *   PUBLISHED → CLOSED  (no longer accepting applicants)
+ *   PAUSED    → PUBLISHED  (re-open, gated by approval)
+ *   PAUSED    → CLOSED
+ *   CLOSED    → ARCHIVED  (long-term hidden, kept for records)
+ *
+ * Anything outside that table is rejected at the service layer. The
+ * "back to DRAFT" path is *not* exposed here — that's an edit-form
+ * concern, and reverting a published posting to draft has different
+ * UX implications.
+ */
+export type TransitionTarget = "PAUSED" | "CLOSED" | "ARCHIVED" | "PUBLISHED";
+
+export type TransitionResult =
+  | { ok: true; id: string; from: string; to: TransitionTarget }
+  | {
+      ok: false;
+      reason:
+        | "not_found"
+        | "forbidden"
+        | "publish_blocked"
+        | "invalid_transition";
+    };
+
+const ALLOWED_TRANSITIONS: Record<string, ReadonlyArray<TransitionTarget>> = {
+  PUBLISHED: ["PAUSED", "CLOSED"],
+  PAUSED: ["PUBLISHED", "CLOSED"],
+  CLOSED: ["ARCHIVED"],
+};
+
+export async function transitionJobPostingStatus(
+  companyUserId: string,
+  jobPostingId: string,
+  target: TransitionTarget,
+): Promise<TransitionResult> {
+  const owned = await loadOwnedPosting(companyUserId, jobPostingId);
+  if (!owned.ok) return owned;
+
+  const existing = await prisma.jobPosting.findUniqueOrThrow({
+    where: { id: owned.postingId },
+    select: { status: true, publishedAt: true },
+  });
+
+  const allowed = ALLOWED_TRANSITIONS[existing.status] ?? [];
+  if (!allowed.includes(target)) {
+    return { ok: false, reason: "invalid_transition" };
+  }
+
+  // Re-publishing requires the same approval gate as the edit form.
+  if (target === "PUBLISHED") {
+    const gate = await gateOnPublish(companyUserId, "PUBLISHED");
+    if (!gate.ok) return gate;
+  }
+
+  // publishedAt: stamp on first publish, leave alone on re-publish of a
+  // previously-published row (the original publish moment is the truth
+  // we want to preserve for "newest" sorting in the public list).
+  let publishedAt: Date | null = existing.publishedAt;
+  if (target === "PUBLISHED" && existing.publishedAt == null) {
+    publishedAt = new Date();
+  }
+
+  await prisma.jobPosting.update({
+    where: { id: owned.postingId },
+    data: { status: target, publishedAt },
+  });
+  return { ok: true, id: owned.postingId, from: existing.status, to: target };
+}
+
 export async function softDeleteJobPosting(
   companyUserId: string,
   jobPostingId: string,

@@ -1,8 +1,30 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { softDeleteJobPostingAction } from "@/features/job-postings/actions";
+import {
+  softDeleteJobPostingAction,
+  transitionJobPostingAction,
+} from "@/features/job-postings/actions";
 import type { JobPostingListItem } from "@/server/services/job-posting-service";
+
+type Status = JobPostingListItem["status"];
+
+const TRANSITIONS_BY_STATUS: Record<
+  Status,
+  Array<{ target: "PUBLISHED" | "PAUSED" | "CLOSED" | "ARCHIVED"; label: string }>
+> = {
+  DRAFT: [],
+  PUBLISHED: [
+    { target: "PAUSED", label: "Pause" },
+    { target: "CLOSED", label: "Close" },
+  ],
+  PAUSED: [
+    { target: "PUBLISHED", label: "Resume" },
+    { target: "CLOSED", label: "Close" },
+  ],
+  CLOSED: [{ target: "ARCHIVED", label: "Archive" }],
+  ARCHIVED: [],
+};
 
 export function JobsList({ rows }: { rows: JobPostingListItem[] }) {
   if (rows.length === 0) {
@@ -60,6 +82,26 @@ export function JobsList({ rows }: { rows: JobPostingListItem[] }) {
                   <Button asChild variant="outline" size="sm">
                     <Link href={`/company/jobs/${row.id}/edit`}>Edit</Link>
                   </Button>
+                  {TRANSITIONS_BY_STATUS[row.status].map((t) => (
+                    <form
+                      key={t.target}
+                      action={transitionJobPostingAction}
+                    >
+                      <input type="hidden" name="id" value={row.id} />
+                      <input type="hidden" name="target" value={t.target} />
+                      <Button
+                        type="submit"
+                        variant={
+                          t.target === "CLOSED" || t.target === "ARCHIVED"
+                            ? "ghost"
+                            : "secondary"
+                        }
+                        size="sm"
+                      >
+                        {t.label}
+                      </Button>
+                    </form>
+                  ))}
                   <form action={softDeleteJobPostingAction}>
                     <input type="hidden" name="id" value={row.id} />
                     <Button
