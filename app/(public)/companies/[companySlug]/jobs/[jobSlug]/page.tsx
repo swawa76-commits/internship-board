@@ -88,7 +88,7 @@ export default async function PublicJobDetailPage({
               {posting.duration ? <Tag>{posting.duration}</Tag> : null}
             </div>
           </div>
-          <ApplyCta jobId={posting.id} />
+          <ApplyCta jobPostingId={posting.id} />
         </header>
 
         {(posting.compensationMin != null ||

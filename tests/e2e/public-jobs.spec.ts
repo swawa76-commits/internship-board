@@ -35,8 +35,11 @@ test("anonymous user can browse, filter, and open a job detail page", async ({
     /\/companies\/[a-z0-9-]+\/jobs\/[a-z0-9-]+$/,
   );
 
-  // Apply CTA is visible.
-  await expect(page.getByRole("link", { name: /^Apply$/ })).toBeVisible();
+  // Apply CTA is visible. (Anonymous visitor: a "Log in to apply" link
+  // since Task 11 wired the CTA to a real apply flow.)
+  await expect(
+    page.getByRole("link", { name: /log in to apply/i }),
+  ).toBeVisible();
 
   // Breadcrumb back to the company page works.
   const companyHref = await page
