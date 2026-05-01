@@ -78,10 +78,7 @@ export default async function StudentDashboardPage() {
       </header>
 
       {completeness && !completeness.isComplete ? (
-        <section
-          className="mx-auto w-full max-w-5xl space-y-3"
-          aria-label="Profile completeness"
-        >
+        <section className="mx-auto w-full max-w-5xl space-y-3">
           <CompletenessMeter completeness={completeness} />
           <div>
             <Button asChild size="sm">
