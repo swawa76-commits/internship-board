@@ -63,9 +63,16 @@ export default async function StudentApplicationsPage() {
                   >
                     <td className="px-3 py-3 align-top">
                       <p className="font-medium">
-                        {/* If the posting is still publicly visible we
-                            link out; otherwise we show plain text. */}
-                        {a.jobPosting.status === "PUBLISHED" ? (
+                        {/* Linkable when the posting is still publicly
+                            visible OR when the student is an active
+                            applicant (the detail page allows that
+                            bypass). The closed-funnel statuses
+                            (REJECTED / WITHDRAWN) drop out of the
+                            bypass set so we render plain text there. */}
+                        {a.jobPosting.status === "PUBLISHED" ||
+                        (
+                          ["APPLIED", "IN_REVIEW", "INTERVIEWING", "OFFER"] as ReadonlyArray<string>
+                        ).includes(a.status) ? (
                           <Link
                             className="hover:underline"
                             href={`/companies/${a.jobPosting.company.companySlug}/jobs/${a.jobPosting.jobSlug}`}

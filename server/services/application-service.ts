@@ -22,12 +22,60 @@ import { canCompanyPublishJobsByStatus } from "@/server/services/visibility-serv
 export type SubmitFailureReason =
   | "not_student"
   | "profile_incomplete"
+  | "resume_required"
   | "already_applied"
   | "job_not_open";
 
 export type SubmitResult =
   | { ok: true; applicationId: string }
   | { ok: false; reason: SubmitFailureReason };
+
+/**
+ * "Active application" = the student is still in flight for this role.
+ * Used by the applicant-visibility bypass: a student with an active
+ * application can still read a now-private job posting detail page.
+ *
+ * REJECTED and WITHDRAWN are NOT active — those students no longer
+ * need ongoing access to the posting.
+ */
+export const ACTIVE_APPLICATION_STATUSES = [
+  "APPLIED",
+  "IN_REVIEW",
+  "INTERVIEWING",
+  "OFFER",
+] as const;
+export type ActiveApplicationStatus =
+  (typeof ACTIVE_APPLICATION_STATUSES)[number];
+
+/**
+ * True iff the given user is a student who currently holds an active
+ * application for the given posting. Used by the public detail-page
+ * visibility bypass and by the student-applications list to decide
+ * whether to render the row's title as a clickable link.
+ */
+export async function studentHasActiveApplication(
+  userId: string,
+  jobPostingId: string,
+): Promise<boolean> {
+  const profile = await prisma.studentProfile.findUnique({
+    where: { userId },
+    select: { id: true },
+  });
+  if (!profile) return false;
+  const application = await prisma.application.findUnique({
+    where: {
+      jobPostingId_studentProfileId: {
+        jobPostingId,
+        studentProfileId: profile.id,
+      },
+    },
+    select: { status: true },
+  });
+  if (!application) return false;
+  return (ACTIVE_APPLICATION_STATUSES as ReadonlyArray<string>).includes(
+    application.status,
+  );
+}
 
 export type SubmitInput = {
   jobPostingId: string;
@@ -55,6 +103,12 @@ export async function submitApplication(
   if (!student) return { ok: false, reason: "not_student" };
   if (!student.studentProfile || !student.studentProfile.isProfileComplete) {
     return { ok: false, reason: "profile_incomplete" };
+  }
+  // 1b. A resume is required to apply. Even if isProfileComplete is
+  // somehow true without one (test fixtures, future migration weirdness),
+  // the application must carry a snapshot of bytes the company can read.
+  if (!student.studentProfile.resumeStorageKey) {
+    return { ok: false, reason: "resume_required" };
   }
 
   // 3 + 4. The job is currently PUBLISHED on a currently-APPROVED

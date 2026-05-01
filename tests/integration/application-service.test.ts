@@ -7,6 +7,7 @@ import {
   canCompanyReadApplicationSnapshot,
   listApplicationsForCompany,
   listApplicationsForStudent,
+  studentHasActiveApplication,
   submitApplication,
   transitionApplicationStatus,
 } from "@/server/services/application-service";
@@ -259,6 +260,105 @@ describe.skipIf(skip)("submitApplication · pre-flight: job state", () => {
   });
 });
 
+describe.skipIf(skip)("submitApplication · pre-flight: resume required (Patch 2)", () => {
+  it("rejects with resume_required when the student has no resume on file", async () => {
+    // Build a complete student manually (skill/experience/project), then
+    // explicitly clear the resume so isProfileComplete recalculates
+    // appropriately. We actually want to test the case where the profile
+    // is otherwise sufficient but the resume is null.
+    const r = await createUserWithCredentials({
+      email: `${RUN_ID}-no-resume-fail@test.local`,
+      password: "longenough",
+      role: "STUDENT",
+    });
+    if (!r.ok) throw new Error("setup failed");
+    createdUserIds.push(r.userId);
+    await upsertProfileBasics(r.userId, STUDENT_FULL);
+    await addSkill(r.userId, { name: "TypeScript" });
+    await addExperience(r.userId, {
+      title: "Intern",
+      organization: "Acme",
+      startDate: null,
+      endDate: null,
+      description: null,
+    });
+    await addProject(r.userId, {
+      name: "Project",
+      url: null,
+      description: null,
+    });
+    // Force isProfileComplete=true, leave resume null. Verifies the
+    // resume_required check is independent of completeness.
+    await prisma.studentProfile.update({
+      where: { userId: r.userId },
+      data: { isProfileComplete: true, resumeStorageKey: null },
+    });
+
+    const co = await makeApprovedCoWithJob("resume-req");
+    const result = await submitApplication(r.userId, {
+      jobPostingId: co.jobId,
+      coverLetter: null,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("resume_required");
+  });
+});
+
+describe.skipIf(skip)("studentHasActiveApplication · bypass guard (Patch 1)", () => {
+  it("returns true for APPLIED / IN_REVIEW / INTERVIEWING / OFFER", async () => {
+    // Drive a single application through each active status and confirm
+    // the bypass returns true at every step.
+    const studentId = await makeCompleteStudent("bypass-active");
+    const co = await makeApprovedCoWithJob("bypass-active-target");
+    const a = await submitApplication(studentId, {
+      jobPostingId: co.jobId,
+      coverLetter: null,
+    });
+    if (!a.ok) throw new Error("setup failed");
+
+    // APPLIED
+    expect(await studentHasActiveApplication(studentId, co.jobId)).toBe(true);
+
+    // IN_REVIEW
+    await transitionApplicationStatus(co.companyUserId, a.applicationId, "IN_REVIEW");
+    expect(await studentHasActiveApplication(studentId, co.jobId)).toBe(true);
+
+    // INTERVIEWING
+    await transitionApplicationStatus(co.companyUserId, a.applicationId, "INTERVIEWING");
+    expect(await studentHasActiveApplication(studentId, co.jobId)).toBe(true);
+
+    // OFFER
+    await transitionApplicationStatus(co.companyUserId, a.applicationId, "OFFER");
+    expect(await studentHasActiveApplication(studentId, co.jobId)).toBe(true);
+  });
+
+  it("returns false for REJECTED (no longer active)", async () => {
+    const studentId = await makeCompleteStudent("bypass-rejected");
+    const co = await makeApprovedCoWithJob("bypass-rejected-target");
+    const a = await submitApplication(studentId, {
+      jobPostingId: co.jobId,
+      coverLetter: null,
+    });
+    if (!a.ok) throw new Error("setup failed");
+    await transitionApplicationStatus(co.companyUserId, a.applicationId, "REJECTED");
+    expect(await studentHasActiveApplication(studentId, co.jobId)).toBe(false);
+  });
+
+  it("returns false for a student with no application to this posting", async () => {
+    const studentId = await makeCompleteStudent("bypass-none");
+    const co = await makeApprovedCoWithJob("bypass-none-target");
+    expect(await studentHasActiveApplication(studentId, co.jobId)).toBe(false);
+  });
+
+  it("returns false for a non-student user", async () => {
+    const co = await makeApprovedCoWithJob("bypass-non-student");
+    expect(
+      await studentHasActiveApplication(co.companyUserId, co.jobId),
+    ).toBe(false);
+  });
+});
+
 describe.skipIf(skip)("submitApplication · pre-flight: duplicate", () => {
   it("rejects a second application from the same student to the same posting", async () => {
     const studentId = await makeCompleteStudent("dup-applicant");
@@ -345,41 +445,18 @@ describe.skipIf(skip)("submitApplication · success path + snapshot", () => {
     expect(event).not.toBeNull();
   });
 
-  it("supports a resume-less student (snapshot is null when student had no resume)", async () => {
-    // The completeness guard normally requires a resume, so for this
-    // case we hand-roll a profile that has every other required field
-    // and flip isProfileComplete=true to bypass the guard. This is the
-    // failure mode we want the snapshot field nullable for, even though
-    // it shouldn't normally arise in production.
-    const r = await createUserWithCredentials({
-      email: `${RUN_ID}-no-resume@test.local`,
-      password: "longenough",
-      role: "STUDENT",
-    });
-    if (!r.ok) throw new Error("setup failed");
-    createdUserIds.push(r.userId);
-    await upsertProfileBasics(r.userId, STUDENT_FULL);
-    await addSkill(r.userId, { name: "TS" });
-    await addExperience(r.userId, {
-      title: "T",
-      organization: "O",
-      startDate: null,
-      endDate: null,
-      description: null,
-    });
-    await addProject(r.userId, { name: "P", url: null, description: null });
-    // No resume; force isProfileComplete=true so we're isolating the
-    // snapshot-null case from the completeness guard.
-    const profile = await prisma.studentProfile.findUniqueOrThrow({
-      where: { userId: r.userId },
-    });
-    await prisma.studentProfile.update({
-      where: { id: profile.id },
-      data: { isProfileComplete: true },
-    });
+  it("the snapshot key matches the student's resume key at apply time", async () => {
+    // Patch 2 makes a resume mandatory to apply, so the previous
+    // resume-less test no longer applies. The remaining invariant
+    // worth pinning here: the snapshot equals the resume key the
+    // student had at submit time. The "snapshot is immutable across a
+    // later resume change" test above covers the read-after-write
+    // invariant.
+    const studentId = await makeCompleteStudent("snap-equals");
+    await setResumeStorageKey(studentId, "resumes/specific-snapshot.pdf");
 
-    const co = await makeApprovedCoWithJob("no-resume-target");
-    const result = await submitApplication(r.userId, {
+    const co = await makeApprovedCoWithJob("snap-equals-target");
+    const result = await submitApplication(studentId, {
       jobPostingId: co.jobId,
       coverLetter: null,
     });
@@ -390,7 +467,9 @@ describe.skipIf(skip)("submitApplication · success path + snapshot", () => {
       where: { id: result.applicationId },
       select: { resumeStorageKeySnapshot: true },
     });
-    expect(application.resumeStorageKeySnapshot).toBeNull();
+    expect(application.resumeStorageKeySnapshot).toBe(
+      "resumes/specific-snapshot.pdf",
+    );
   });
 });
 

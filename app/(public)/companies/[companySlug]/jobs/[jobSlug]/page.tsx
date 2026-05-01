@@ -2,7 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ApplyCta } from "@/features/public-jobs/apply-cta";
-import { getPublicJobPostingBySlugs } from "@/server/services/public-job-search";
+import { getSessionUser } from "@/lib/auth/guards";
+import { studentHasActiveApplication } from "@/server/services/application-service";
+import {
+  getJobPostingBySlugsForBypass,
+  getPublicJobPostingBySlugs,
+} from "@/server/services/public-job-search";
 
 export async function generateMetadata({
   params,
@@ -41,10 +46,31 @@ export default async function PublicJobDetailPage({
   params: Promise<{ companySlug: string; jobSlug: string }>;
 }) {
   const { companySlug, jobSlug } = await params;
-  const posting = await getPublicJobPostingBySlugs(companySlug, jobSlug);
-  // The lookup applies the full visibility rule — anything that's
-  // soft-deleted, non-PUBLISHED, or owned by a non-APPROVED company
-  // returns null and we 404.
+
+  // Public path: visibility rule passes — anyone can read.
+  let posting = await getPublicJobPostingBySlugs(companySlug, jobSlug);
+  let bypassedAsApplicant = false;
+
+  if (!posting) {
+    // Applicant-visibility bypass: a logged-in STUDENT with an active
+    // application for this exact posting can still read the page even
+    // if the posting is no longer publicly visible (paused, closed,
+    // company suspended, etc.). Hard-deleted rows still 404.
+    const user = await getSessionUser();
+    if (user && user.role === "STUDENT") {
+      const candidate = await getJobPostingBySlugsForBypass(
+        companySlug,
+        jobSlug,
+      );
+      if (
+        candidate &&
+        (await studentHasActiveApplication(user.id, candidate.id))
+      ) {
+        posting = candidate;
+        bypassedAsApplicant = true;
+      }
+    }
+  }
   if (!posting) notFound();
 
   const company = posting.companyProfile;
@@ -56,6 +82,16 @@ export default async function PublicJobDetailPage({
           ← Back to all internships
         </Link>
       </nav>
+
+      {bypassedAsApplicant ? (
+        <div
+          role="status"
+          className="mx-auto w-full max-w-5xl rounded-md border border-border bg-muted/40 px-4 py-3 text-sm"
+        >
+          This posting is no longer publicly visible. You can still see it
+          because you have an active application.
+        </div>
+      ) : null}
 
       <article className="mx-auto w-full max-w-5xl space-y-6">
         <header className="flex flex-col gap-4 rounded-lg border border-border bg-card p-6 sm:flex-row sm:items-start sm:justify-between">

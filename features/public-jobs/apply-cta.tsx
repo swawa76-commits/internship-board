@@ -51,7 +51,7 @@ export async function ApplyCta({ jobPostingId }: { jobPostingId: string }) {
   // the gate.
   const profile = await prisma.studentProfile.findUnique({
     where: { userId: user.id },
-    select: { id: true, isProfileComplete: true },
+    select: { id: true, isProfileComplete: true, resumeStorageKey: true },
   });
 
   if (!profile || !profile.isProfileComplete) {
@@ -60,6 +60,20 @@ export async function ApplyCta({ jobPostingId }: { jobPostingId: string }) {
         <p>Finish your profile before applying.</p>
         <Button asChild size="sm" className="mt-3">
           <Link href="/student/profile">Open your profile</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  // A resume is required to apply (Patch 2). Even if the profile is
+  // marked complete, a missing resume blocks submission server-side
+  // — guide the student to upload one before they hit submit.
+  if (!profile.resumeStorageKey) {
+    return (
+      <div className="rounded-md border border-border bg-muted/40 p-4 text-sm">
+        <p>Upload a resume on your profile before applying.</p>
+        <Button asChild size="sm" className="mt-3">
+          <Link href="/student/profile">Upload resume</Link>
         </Button>
       </div>
     );

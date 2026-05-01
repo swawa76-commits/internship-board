@@ -24,6 +24,8 @@ const FAILURE_MESSAGES: Record<SubmitFailureReason, string> = {
   not_student: "You must be a student to apply.",
   profile_incomplete:
     "Finish your profile (basics, resume, skill, experience, project) before applying.",
+  resume_required:
+    "A resume is required to apply. Upload one on your profile and try again.",
   already_applied: "You've already applied to this posting.",
   job_not_open:
     "This posting is no longer accepting applications.",

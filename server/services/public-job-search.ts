@@ -177,6 +177,44 @@ export async function getPublicJobPostingBySlugs(
 }
 
 /**
+ * Visibility-bypass lookup. Returns the posting regardless of whether
+ * it's currently publicly visible — caller is responsible for having
+ * already authorized the bypass (e.g., the requesting user is a
+ * student with an active application). Excludes only soft-deleted
+ * rows so a hard delete can't leak.
+ *
+ * The detail page uses this together with `studentHasActiveApplication`
+ * from application-service.
+ */
+export async function getJobPostingBySlugsForBypass(
+  companySlug: string,
+  jobSlug: string,
+) {
+  return prisma.jobPosting.findFirst({
+    where: {
+      slug: jobSlug,
+      deletedAt: null,
+      companyProfile: { slug: companySlug, deletedAt: null },
+    },
+    include: {
+      companyProfile: {
+        select: {
+          companyName: true,
+          slug: true,
+          logoStorageKey: true,
+          industry: true,
+          companySize: true,
+          headquarters: true,
+          shortDescription: true,
+          description: true,
+          websiteUrl: true,
+        },
+      },
+    },
+  });
+}
+
+/**
  * Resolve a public company by slug, including the company's currently
  * visible postings. Used by /companies/[companySlug] (a Task 10
  * scaffold; the full body lands later — but the route shape is needed
