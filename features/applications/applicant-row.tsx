@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Button } from "@/components/ui/button";
 import { transitionApplicationStatusAction } from "@/features/applications/actions";
 import type { CompanyApplicantRow } from "@/server/services/application-service";
@@ -80,6 +82,11 @@ export function ApplicantRow({ row }: { row: CompanyApplicantRow }) {
           <span className="text-xs text-muted-foreground">No resume on file</span>
         )}
         <div className="flex flex-wrap gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link href={`/company/applications/${row.id}/message`}>
+              Message
+            </Link>
+          </Button>
           {transitions.map((t) => (
             <form
               key={t.target}

@@ -1,0 +1,632 @@
+import "server-only";
+
+import { prisma } from "@/lib/db/client";
+import type { ApplicationStatus } from "@/lib/db/generated/enums";
+
+/**
+ * Message service. Tenant isolation is enforced here — no route or
+ * action ever queries `MessageThread` / `Message` directly.
+ *
+ * Product rules from CLAUDE.md:
+ *  - A thread always belongs to exactly one Application. No cold outreach.
+ *  - Only a COMPANY can INITIATE a thread, and only with applicants to
+ *    one of their own postings.
+ *  - A STUDENT may REPLY only after a company has initiated; they
+ *    cannot send the first message.
+ *  - A STUDENT only sees threads tied to their own applications.
+ *  - A COMPANY only sees threads tied to applications on their postings.
+ *  - Soft-deleted user / company rows are invisible (consistent with
+ *    the rest of the service layer).
+ *
+ * On error semantics: we deliberately collapse "thread doesn't exist"
+ * and "thread isn't yours" into a single `forbidden` reason for cross-
+ * tenant probes — never leak existence to a non-owner. `not_found`
+ * is reserved for legitimately missing resources the caller should
+ * know about (e.g., the application they own was deleted).
+ */
+
+export type SendMessageFailureReason =
+  | "forbidden"
+  | "thread_not_found"
+  | "empty"
+  | "students_cannot_initiate";
+
+export type SendMessageResult =
+  | { ok: true; messageId: string }
+  | { ok: false; reason: SendMessageFailureReason };
+
+export type StartThreadFailureReason =
+  | "forbidden"
+  | "application_not_found"
+  | "empty";
+
+export type StartThreadResult =
+  | { ok: true; threadId: string; messageId: string }
+  | { ok: false; reason: StartThreadFailureReason };
+
+export type ThreadListItem = {
+  threadId: string;
+  applicationId: string;
+  applicationStatus: ApplicationStatus;
+  jobPosting: {
+    id: string;
+    title: string;
+    jobSlug: string;
+  };
+  /** From the calling tenant's POV: the *other* party. */
+  counterparty: {
+    name: string;
+    /** Slug for company; null for student (we don't expose student slugs publicly). */
+    companySlug: string | null;
+  };
+  lastMessage: {
+    body: string;
+    senderRole: "STUDENT" | "COMPANY";
+    createdAt: Date;
+  } | null;
+  updatedAt: Date;
+  unreadForViewer: number;
+};
+
+export type ThreadDetail = {
+  threadId: string;
+  applicationId: string;
+  jobPosting: {
+    id: string;
+    title: string;
+    jobSlug: string;
+  };
+  counterparty: {
+    name: string;
+    companySlug: string | null;
+  };
+  /** Whether the viewer is allowed to send into this thread right now. */
+  canReply: boolean;
+  messages: Array<{
+    id: string;
+    body: string;
+    senderRole: "STUDENT" | "COMPANY";
+    senderUserId: string;
+    createdAt: Date;
+    readAt: Date | null;
+  }>;
+};
+
+const MAX_BODY_LEN = 4000;
+
+function clean(body: string): string {
+  return body.replace(/\s+/g, " ").trim();
+}
+
+// ---------- Tenant identity resolvers ----------
+
+async function resolveStudent(userId: string) {
+  return prisma.studentProfile.findFirst({
+    where: { user: { id: userId, role: "STUDENT", deletedAt: null } },
+    select: { id: true, fullName: true },
+  });
+}
+
+async function resolveCompany(userId: string) {
+  return prisma.companyProfile.findFirst({
+    where: { userId, deletedAt: null },
+    select: { id: true, companyName: true, slug: true },
+  });
+}
+
+// ---------- Reads ----------
+
+export async function listThreadsForStudent(
+  studentUserId: string,
+): Promise<ThreadListItem[]> {
+  const profile = await resolveStudent(studentUserId);
+  if (!profile) return [];
+
+  const threads = await prisma.messageThread.findMany({
+    where: { application: { studentProfileId: profile.id } },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      updatedAt: true,
+      application: {
+        select: {
+          id: true,
+          status: true,
+          jobPosting: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+              companyProfile: { select: { companyName: true, slug: true } },
+            },
+          },
+        },
+      },
+      messages: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: {
+          body: true,
+          createdAt: true,
+          senderUser: { select: { role: true } },
+        },
+      },
+      _count: {
+        select: {
+          messages: {
+            where: {
+              readAt: null,
+              senderUser: { role: { not: "STUDENT" } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return threads.map((t) => {
+    const last = t.messages[0];
+    return {
+      threadId: t.id,
+      applicationId: t.application.id,
+      applicationStatus: t.application.status,
+      jobPosting: {
+        id: t.application.jobPosting.id,
+        title: t.application.jobPosting.title,
+        jobSlug: t.application.jobPosting.slug,
+      },
+      counterparty: {
+        name: t.application.jobPosting.companyProfile.companyName,
+        companySlug: t.application.jobPosting.companyProfile.slug,
+      },
+      lastMessage: last
+        ? {
+            body: last.body,
+            senderRole: last.senderUser.role as "STUDENT" | "COMPANY",
+            createdAt: last.createdAt,
+          }
+        : null,
+      updatedAt: t.updatedAt,
+      unreadForViewer: t._count.messages,
+    };
+  });
+}
+
+export async function listThreadsForCompany(
+  companyUserId: string,
+): Promise<ThreadListItem[]> {
+  const company = await resolveCompany(companyUserId);
+  if (!company) return [];
+
+  const threads = await prisma.messageThread.findMany({
+    where: {
+      application: { jobPosting: { companyProfileId: company.id } },
+    },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      updatedAt: true,
+      application: {
+        select: {
+          id: true,
+          status: true,
+          jobPosting: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+            },
+          },
+          studentProfile: { select: { fullName: true } },
+        },
+      },
+      messages: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: {
+          body: true,
+          createdAt: true,
+          senderUser: { select: { role: true } },
+        },
+      },
+      _count: {
+        select: {
+          messages: {
+            where: {
+              readAt: null,
+              senderUser: { role: { not: "COMPANY" } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return threads.map((t) => {
+    const last = t.messages[0];
+    return {
+      threadId: t.id,
+      applicationId: t.application.id,
+      applicationStatus: t.application.status,
+      jobPosting: {
+        id: t.application.jobPosting.id,
+        title: t.application.jobPosting.title,
+        jobSlug: t.application.jobPosting.slug,
+      },
+      counterparty: {
+        name: t.application.studentProfile.fullName,
+        companySlug: null,
+      },
+      lastMessage: last
+        ? {
+            body: last.body,
+            senderRole: last.senderUser.role as "STUDENT" | "COMPANY",
+            createdAt: last.createdAt,
+          }
+        : null,
+      updatedAt: t.updatedAt,
+      unreadForViewer: t._count.messages,
+    };
+  });
+}
+
+/**
+ * Read a single thread + its messages. Returns null on any tenant
+ * mismatch — callers map that to a 404. Marks counterparty messages
+ * as read in the same call (read-as-load).
+ */
+export async function getThreadForStudent(
+  studentUserId: string,
+  threadId: string,
+): Promise<ThreadDetail | null> {
+  const profile = await resolveStudent(studentUserId);
+  if (!profile) return null;
+
+  const thread = await prisma.messageThread.findFirst({
+    where: {
+      id: threadId,
+      application: { studentProfileId: profile.id },
+    },
+    select: {
+      id: true,
+      initiatedByUserId: true,
+      application: {
+        select: {
+          id: true,
+          jobPosting: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+              companyProfile: { select: { companyName: true, slug: true } },
+            },
+          },
+        },
+      },
+      messages: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          body: true,
+          senderUserId: true,
+          readAt: true,
+          createdAt: true,
+          senderUser: { select: { role: true } },
+        },
+      },
+    },
+  });
+  if (!thread) return null;
+
+  // Mark unread company-side messages as read for the student viewer.
+  await prisma.message.updateMany({
+    where: {
+      threadId: thread.id,
+      readAt: null,
+      senderUser: { role: { not: "STUDENT" } },
+    },
+    data: { readAt: new Date() },
+  });
+
+  // A student can reply only if a company already initiated this
+  // thread. The schema currently always has the company as initiator
+  // (see startThreadAsCompany), but we keep the runtime check explicit
+  // so that future product changes can't silently flip the rule.
+  const canReply = thread.initiatedByUserId !== studentUserId;
+
+  return {
+    threadId: thread.id,
+    applicationId: thread.application.id,
+    jobPosting: {
+      id: thread.application.jobPosting.id,
+      title: thread.application.jobPosting.title,
+      jobSlug: thread.application.jobPosting.slug,
+    },
+    counterparty: {
+      name: thread.application.jobPosting.companyProfile.companyName,
+      companySlug: thread.application.jobPosting.companyProfile.slug,
+    },
+    canReply,
+    messages: thread.messages.map((m) => ({
+      id: m.id,
+      body: m.body,
+      senderRole: m.senderUser.role as "STUDENT" | "COMPANY",
+      senderUserId: m.senderUserId,
+      createdAt: m.createdAt,
+      readAt: m.readAt,
+    })),
+  };
+}
+
+export async function getThreadForCompany(
+  companyUserId: string,
+  threadId: string,
+): Promise<ThreadDetail | null> {
+  const company = await resolveCompany(companyUserId);
+  if (!company) return null;
+
+  const thread = await prisma.messageThread.findFirst({
+    where: {
+      id: threadId,
+      application: { jobPosting: { companyProfileId: company.id } },
+    },
+    select: {
+      id: true,
+      application: {
+        select: {
+          id: true,
+          jobPosting: { select: { id: true, title: true, slug: true } },
+          studentProfile: { select: { fullName: true } },
+        },
+      },
+      messages: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          body: true,
+          senderUserId: true,
+          readAt: true,
+          createdAt: true,
+          senderUser: { select: { role: true } },
+        },
+      },
+    },
+  });
+  if (!thread) return null;
+
+  await prisma.message.updateMany({
+    where: {
+      threadId: thread.id,
+      readAt: null,
+      senderUser: { role: { not: "COMPANY" } },
+    },
+    data: { readAt: new Date() },
+  });
+
+  return {
+    threadId: thread.id,
+    applicationId: thread.application.id,
+    jobPosting: {
+      id: thread.application.jobPosting.id,
+      title: thread.application.jobPosting.title,
+      jobSlug: thread.application.jobPosting.slug,
+    },
+    counterparty: {
+      name: thread.application.studentProfile.fullName,
+      companySlug: null,
+    },
+    canReply: true,
+    messages: thread.messages.map((m) => ({
+      id: m.id,
+      body: m.body,
+      senderRole: m.senderUser.role as "STUDENT" | "COMPANY",
+      senderUserId: m.senderUserId,
+      createdAt: m.createdAt,
+      readAt: m.readAt,
+    })),
+  };
+}
+
+// ---------- Writes ----------
+
+/**
+ * Company-initiated thread creation. Wraps thread create + first
+ * message + activity event in a single transaction so the audit
+ * trail can't get out of sync with reality.
+ */
+export async function startThreadAsCompany(
+  companyUserId: string,
+  applicationId: string,
+  body: string,
+): Promise<StartThreadResult> {
+  const cleaned = clean(body);
+  if (cleaned.length === 0 || cleaned.length > MAX_BODY_LEN) {
+    return { ok: false, reason: "empty" };
+  }
+
+  const company = await resolveCompany(companyUserId);
+  if (!company) return { ok: false, reason: "forbidden" };
+
+  // The application must belong to one of this company's postings.
+  // Cross-tenant probe collapses to "forbidden" so we never leak
+  // existence of an application owned by another company.
+  const application = await prisma.application.findFirst({
+    where: {
+      id: applicationId,
+      jobPosting: { companyProfileId: company.id },
+    },
+    select: { id: true },
+  });
+  if (!application) return { ok: false, reason: "forbidden" };
+
+  // Idempotency: if a thread already exists for this application,
+  // reuse it rather than creating a duplicate. Keeps the inbox clean.
+  const existing = await prisma.messageThread.findFirst({
+    where: { applicationId: application.id },
+    select: { id: true },
+  });
+
+  if (existing) {
+    const [, message] = await prisma.$transaction([
+      prisma.messageThread.update({
+        where: { id: existing.id },
+        data: { updatedAt: new Date() },
+      }),
+      prisma.message.create({
+        data: {
+          threadId: existing.id,
+          senderUserId: companyUserId,
+          body: cleaned,
+        },
+        select: { id: true },
+      }),
+    ]);
+    return { ok: true, threadId: existing.id, messageId: message.id };
+  }
+
+  const [thread, message] = await prisma.$transaction(async (tx) => {
+    const t = await tx.messageThread.create({
+      data: {
+        applicationId: application.id,
+        initiatedByUserId: companyUserId,
+      },
+      select: { id: true },
+    });
+    const m = await tx.message.create({
+      data: {
+        threadId: t.id,
+        senderUserId: companyUserId,
+        body: cleaned,
+      },
+      select: { id: true },
+    });
+    await tx.activityEvent.create({
+      data: {
+        type: "MESSAGE_THREAD_CREATED",
+        actorUserId: companyUserId,
+        entityType: "MessageThread",
+        entityId: t.id,
+        metadataJson: { applicationId: application.id },
+      },
+    });
+    return [t, m] as const;
+  });
+
+  return { ok: true, threadId: thread.id, messageId: message.id };
+}
+
+/**
+ * Student reply. Forbidden unless a thread exists tied to one of the
+ * student's own applications, AND the thread was initiated by someone
+ * other than the student themselves (CLAUDE.md: students cannot start
+ * threads). The schema currently disallows student-initiated threads
+ * upstream, but the second check pins the rule at the writer too.
+ */
+export async function sendMessageAsStudent(
+  studentUserId: string,
+  threadId: string,
+  body: string,
+): Promise<SendMessageResult> {
+  const cleaned = clean(body);
+  if (cleaned.length === 0 || cleaned.length > MAX_BODY_LEN) {
+    return { ok: false, reason: "empty" };
+  }
+
+  const profile = await resolveStudent(studentUserId);
+  if (!profile) return { ok: false, reason: "forbidden" };
+
+  const thread = await prisma.messageThread.findFirst({
+    where: {
+      id: threadId,
+      application: { studentProfileId: profile.id },
+    },
+    select: { id: true, initiatedByUserId: true },
+  });
+  if (!thread) return { ok: false, reason: "forbidden" };
+
+  if (thread.initiatedByUserId === studentUserId) {
+    return { ok: false, reason: "students_cannot_initiate" };
+  }
+
+  const [, message] = await prisma.$transaction([
+    prisma.messageThread.update({
+      where: { id: thread.id },
+      data: { updatedAt: new Date() },
+    }),
+    prisma.message.create({
+      data: {
+        threadId: thread.id,
+        senderUserId: studentUserId,
+        body: cleaned,
+      },
+      select: { id: true },
+    }),
+  ]);
+
+  return { ok: true, messageId: message.id };
+}
+
+/**
+ * Company reply. The thread must belong to one of the company's
+ * postings; the cross-tenant case collapses to `forbidden`.
+ */
+export async function sendMessageAsCompany(
+  companyUserId: string,
+  threadId: string,
+  body: string,
+): Promise<SendMessageResult> {
+  const cleaned = clean(body);
+  if (cleaned.length === 0 || cleaned.length > MAX_BODY_LEN) {
+    return { ok: false, reason: "empty" };
+  }
+
+  const company = await resolveCompany(companyUserId);
+  if (!company) return { ok: false, reason: "forbidden" };
+
+  const thread = await prisma.messageThread.findFirst({
+    where: {
+      id: threadId,
+      application: { jobPosting: { companyProfileId: company.id } },
+    },
+    select: { id: true },
+  });
+  if (!thread) return { ok: false, reason: "forbidden" };
+
+  const [, message] = await prisma.$transaction([
+    prisma.messageThread.update({
+      where: { id: thread.id },
+      data: { updatedAt: new Date() },
+    }),
+    prisma.message.create({
+      data: {
+        threadId: thread.id,
+        senderUserId: companyUserId,
+        body: cleaned,
+      },
+      select: { id: true },
+    }),
+  ]);
+
+  return { ok: true, messageId: message.id };
+}
+
+/**
+ * Helper for the company applicant-row UI: does this company already
+ * have a thread for this application? Used to switch the button
+ * between "Start conversation" and "Open thread".
+ */
+export async function getThreadIdForApplicationAsCompany(
+  companyUserId: string,
+  applicationId: string,
+): Promise<string | null> {
+  const company = await resolveCompany(companyUserId);
+  if (!company) return null;
+  const thread = await prisma.messageThread.findFirst({
+    where: {
+      applicationId,
+      application: { jobPosting: { companyProfileId: company.id } },
+    },
+    select: { id: true },
+  });
+  return thread?.id ?? null;
+}
