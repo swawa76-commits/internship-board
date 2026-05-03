@@ -3,7 +3,7 @@ import { mkdtemp, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { LocalFsStorageAdapter } from "@/server/adapters/storage/local-fs-adapter";
 import { NoopStorageAdapter } from "@/server/adapters/storage/noop-adapter";
@@ -112,5 +112,114 @@ describe("NoopStorageAdapter", () => {
     if (result.kind === "stream") {
       expect(result.bytes.toString()).toBe("hello");
     }
+  });
+});
+
+describe("selectAdapter", () => {
+  it("defaults to LocalFsStorageAdapter when STORAGE_DRIVER is unset", async () => {
+    const { selectAdapter } = await import("@/server/adapters/storage");
+    const adapter = selectAdapter({} as NodeJS.ProcessEnv, false);
+    expect(adapter).toBeInstanceOf(LocalFsStorageAdapter);
+  });
+
+  it("returns LocalFsStorageAdapter for STORAGE_DRIVER=local and =local-fs", async () => {
+    const { selectAdapter } = await import("@/server/adapters/storage");
+    expect(selectAdapter({ STORAGE_DRIVER: "local" } as unknown as NodeJS.ProcessEnv, false)).toBeInstanceOf(
+      LocalFsStorageAdapter,
+    );
+    expect(selectAdapter({ STORAGE_DRIVER: "local-fs" } as unknown as NodeJS.ProcessEnv, false)).toBeInstanceOf(
+      LocalFsStorageAdapter,
+    );
+  });
+
+  it("returns NoopStorageAdapter for STORAGE_DRIVER=noop", async () => {
+    const { selectAdapter } = await import("@/server/adapters/storage");
+    expect(selectAdapter({ STORAGE_DRIVER: "noop" } as unknown as NodeJS.ProcessEnv, false)).toBeInstanceOf(
+      NoopStorageAdapter,
+    );
+  });
+
+  it("falls back to local with a warning on unknown driver in development", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { selectAdapter } = await import("@/server/adapters/storage");
+    const adapter = selectAdapter(
+      { STORAGE_DRIVER: "made-up" } as unknown as NodeJS.ProcessEnv,
+      false,
+    );
+    expect(adapter).toBeInstanceOf(LocalFsStorageAdapter);
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it("throws on unknown driver in production", async () => {
+    const { selectAdapter } = await import("@/server/adapters/storage");
+    expect(() =>
+      selectAdapter(
+        { STORAGE_DRIVER: "made-up" } as unknown as NodeJS.ProcessEnv,
+        true,
+      ),
+    ).toThrow(/Unknown STORAGE_DRIVER/);
+  });
+});
+
+describe("S3StorageAdapter (skeleton)", () => {
+  it("constructs successfully when every required env var is present", async () => {
+    const { S3StorageAdapter } = await import(
+      "@/server/adapters/storage/s3-adapter"
+    );
+    const adapter = new S3StorageAdapter({
+      S3_BUCKET: "internship-board-uploads",
+      S3_REGION: "us-east-1",
+      S3_ACCESS_KEY_ID: "AKIA-test",
+      S3_SECRET_ACCESS_KEY: "test-secret",
+    } as unknown as NodeJS.ProcessEnv);
+    expect(adapter.name).toBe("s3");
+    expect(adapter.bucket).toBe("internship-board-uploads");
+  });
+
+  it("throws a clear error when any required env var is missing", async () => {
+    const { S3StorageAdapter } = await import(
+      "@/server/adapters/storage/s3-adapter"
+    );
+    expect(
+      () =>
+        new S3StorageAdapter({
+          S3_BUCKET: "x",
+          S3_REGION: "us-east-1",
+          // missing S3_ACCESS_KEY_ID + S3_SECRET_ACCESS_KEY
+        } as unknown as NodeJS.ProcessEnv),
+    ).toThrow(/missing required env.*S3_ACCESS_KEY_ID.*S3_SECRET_ACCESS_KEY/);
+  });
+
+  it("selectAdapter(STORAGE_DRIVER=s3) propagates the missing-env error", async () => {
+    const { selectAdapter } = await import("@/server/adapters/storage");
+    expect(() =>
+      selectAdapter(
+        { STORAGE_DRIVER: "s3" } as unknown as NodeJS.ProcessEnv,
+        false,
+      ),
+    ).toThrow(/missing required env/);
+  });
+
+  it("put / read / delete throw 'not implemented' on the skeleton", async () => {
+    const { S3StorageAdapter } = await import(
+      "@/server/adapters/storage/s3-adapter"
+    );
+    const adapter = new S3StorageAdapter({
+      S3_BUCKET: "b",
+      S3_REGION: "us-east-1",
+      S3_ACCESS_KEY_ID: "x",
+      S3_SECRET_ACCESS_KEY: "y",
+    } as unknown as NodeJS.ProcessEnv);
+    await expect(
+      adapter.put({
+        prefix: "resumes",
+        filename: "cv.pdf",
+        contentType: "application/pdf",
+        bytes: Buffer.from("x"),
+      }),
+    ).rejects.toThrow(/not implemented/i);
+    await expect(adapter.read("resumes/x.pdf")).rejects.toThrow(/not implemented/i);
+    await expect(adapter.delete("resumes/x.pdf")).rejects.toThrow(/not implemented/i);
   });
 });

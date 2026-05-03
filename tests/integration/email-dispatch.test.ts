@@ -455,3 +455,149 @@ describe.skipIf(skip)("fault tolerance · provider failures don't roll back prim
     expect(consoleErrorSpy).toHaveBeenCalled();
   });
 });
+
+describe.skipIf(skip)("email QA · idempotency, state-change-only, counterparty", () => {
+  it("admin pending email fires only on first company-profile save (not edits)", async () => {
+    const a1 = await makeAdmin("idem-admin");
+    const co = await createUserWithCredentials({
+      email: `${RUN_ID}-idem-co@test.local`,
+      password: "longenough",
+      role: "COMPANY",
+    });
+    if (!co.ok) throw new Error("setup");
+    createdUserIds.push(co.userId);
+    collector.reset();
+
+    // First save → fan-out fires.
+    await upsertCompanyProfile(co.userId, {
+      ...COMPANY_BASE,
+      companyName: `Idem Co ${RUN_ID}`,
+    });
+    const firstFanOut = collector.sent.filter(
+      (m) => (m.metadata as { kind?: string })?.kind === "admin_company_pending",
+    );
+    expect(firstFanOut.length).toBeGreaterThanOrEqual(1);
+    expect(firstFanOut.some((m) => m.to === a1.email)).toBe(true);
+
+    collector.reset();
+
+    // Edit pass: change profile fields. Must NOT re-fire the pending email.
+    await upsertCompanyProfile(co.userId, {
+      ...COMPANY_BASE,
+      companyName: `Idem Co ${RUN_ID}`,
+      industry: "Healthcare",
+    });
+    await upsertCompanyProfile(co.userId, {
+      ...COMPANY_BASE,
+      companyName: `Idem Co ${RUN_ID}`,
+      industry: "Education",
+    });
+    const reFires = collector.sent.filter(
+      (m) => (m.metadata as { kind?: string })?.kind === "admin_company_pending",
+    );
+    expect(reFires.length).toBe(0);
+  });
+
+  it("approval-status email fires only when approvalStatus actually changes", async () => {
+    const admin = await makeAdmin("nochange");
+    const co = await createUserWithCredentials({
+      email: `${RUN_ID}-nochange-co@test.local`,
+      password: "longenough",
+      role: "COMPANY",
+    });
+    if (!co.ok) throw new Error("setup");
+    createdUserIds.push(co.userId);
+    const profile = await upsertCompanyProfile(co.userId, {
+      ...COMPANY_BASE,
+      companyName: `NoChange Co ${RUN_ID}`,
+    });
+    if (!profile.ok) throw new Error("setup");
+    collector.reset();
+
+    // PENDING -> PENDING (no actual change) must not dispatch.
+    await setCompanyApprovalStatus(admin.id, profile.companyProfileId, "PENDING");
+    expect(
+      collector.sent.find(
+        (m) =>
+          (m.metadata as { kind?: string })?.kind ===
+          "company_approval_changed",
+      ),
+    ).toBeUndefined();
+
+    // PENDING -> APPROVED dispatches once.
+    await setCompanyApprovalStatus(admin.id, profile.companyProfileId, "APPROVED");
+    let approvalMails = collector.sent.filter(
+      (m) =>
+        (m.metadata as { kind?: string })?.kind === "company_approval_changed",
+    );
+    expect(approvalMails.length).toBe(1);
+    expect(
+      (approvalMails[0].metadata as { newStatus?: string }).newStatus,
+    ).toBe("APPROVED");
+
+    // APPROVED -> APPROVED is a no-op; no extra dispatch.
+    await setCompanyApprovalStatus(admin.id, profile.companyProfileId, "APPROVED");
+    approvalMails = collector.sent.filter(
+      (m) =>
+        (m.metadata as { kind?: string })?.kind === "company_approval_changed",
+    );
+    expect(approvalMails.length).toBe(1);
+
+    // APPROVED -> SUSPENDED dispatches once more.
+    await setCompanyApprovalStatus(admin.id, profile.companyProfileId, "SUSPENDED");
+    approvalMails = collector.sent.filter(
+      (m) =>
+        (m.metadata as { kind?: string })?.kind === "company_approval_changed",
+    );
+    expect(approvalMails.length).toBe(2);
+    expect(
+      (approvalMails[1].metadata as { newStatus?: string }).newStatus,
+    ).toBe("SUSPENDED");
+  });
+
+  it("new-message email always goes to the counterparty, never the sender", async () => {
+    const admin = await makeAdmin("counterparty");
+    const co = await makeCompany("counterparty", admin.id);
+    const stud = await makeStudent("counterparty");
+    const job = await createJobPosting(co.companyUserId, {
+      ...POSTING_BASE,
+      title: "Counterparty role",
+    });
+    if (!job.ok) throw new Error("setup");
+    const a = await submitApplication(stud, {
+      jobPostingId: job.id,
+      coverLetter: null,
+    });
+    if (!a.ok) throw new Error("setup");
+
+    const studentEmail = `${RUN_ID}-stud-counterparty@test.local`;
+    const companyEmail = "talent@test.local"; // contactEmail from COMPANY_BASE
+
+    collector.reset();
+    const t = await startThreadAsCompany(co.companyUserId, a.applicationId, "Hi.");
+    if (!t.ok) throw new Error("setup");
+    let msgMails = collector.sent.filter(
+      (m) => (m.metadata as { kind?: string })?.kind === "new_message",
+    );
+    expect(msgMails.length).toBe(1);
+    expect(msgMails[0].to).toBe(studentEmail);
+    expect(msgMails.every((m) => m.to !== companyEmail)).toBe(true);
+
+    collector.reset();
+    await sendMessageAsStudent(stud, t.threadId, "Reply.");
+    msgMails = collector.sent.filter(
+      (m) => (m.metadata as { kind?: string })?.kind === "new_message",
+    );
+    expect(msgMails.length).toBe(1);
+    expect(msgMails[0].to).toBe(companyEmail);
+    expect(msgMails.every((m) => m.to !== studentEmail)).toBe(true);
+
+    collector.reset();
+    await sendMessageAsCompany(co.companyUserId, t.threadId, "Reply 2.");
+    msgMails = collector.sent.filter(
+      (m) => (m.metadata as { kind?: string })?.kind === "new_message",
+    );
+    expect(msgMails.length).toBe(1);
+    expect(msgMails[0].to).toBe(studentEmail);
+  });
+});
