@@ -4,12 +4,19 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireRole } from "@/lib/auth/guards";
-import { setCompanyApprovalStatus } from "@/server/services/admin-service";
+import {
+  setCompanyApprovalStatus,
+  softDeleteCompanyAsAdmin,
+  softDeleteJobPostingAsAdmin,
+  softDeleteStudentAsAdmin,
+} from "@/server/services/admin-service";
 
 const approvalChangeSchema = z.object({
   companyProfileId: z.string().cuid(),
   newStatus: z.enum(["APPROVED", "PENDING", "SUSPENDED"]),
 });
+
+const idSchema = z.object({ id: z.string().cuid() });
 
 /**
  * Sole sanctioned client-facing path for changing a company's approval
@@ -55,4 +62,45 @@ export async function setCompanyApprovalAction(
   revalidatePath("/jobs");
   revalidatePath("/companies", "layout");
   revalidatePath("/", "layout");
+}
+
+/**
+ * Soft-delete a company. Hides their profile + postings from public
+ * surfaces (the visibility predicate excludes deletedAt rows). The
+ * service logs an activity event so the audit trail captures it.
+ */
+export async function softDeleteCompanyAdminAction(
+  formData: FormData,
+): Promise<void> {
+  const admin = await requireRole("ADMIN");
+  const parsed = idSchema.safeParse({ id: formData.get("id") });
+  if (!parsed.success) return;
+  await softDeleteCompanyAsAdmin(admin.id, parsed.data.id);
+  revalidatePath("/admin/companies");
+  revalidatePath("/admin");
+  revalidatePath("/jobs");
+  revalidatePath("/companies", "layout");
+}
+
+export async function softDeleteStudentAdminAction(
+  formData: FormData,
+): Promise<void> {
+  const admin = await requireRole("ADMIN");
+  const parsed = idSchema.safeParse({ id: formData.get("id") });
+  if (!parsed.success) return;
+  await softDeleteStudentAsAdmin(admin.id, parsed.data.id);
+  revalidatePath("/admin/students");
+  revalidatePath("/admin");
+}
+
+export async function softDeleteJobPostingAdminAction(
+  formData: FormData,
+): Promise<void> {
+  const admin = await requireRole("ADMIN");
+  const parsed = idSchema.safeParse({ id: formData.get("id") });
+  if (!parsed.success) return;
+  await softDeleteJobPostingAsAdmin(admin.id, parsed.data.id);
+  revalidatePath("/admin/jobs");
+  revalidatePath("/admin");
+  revalidatePath("/jobs");
 }

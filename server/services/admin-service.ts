@@ -2,6 +2,26 @@ import "server-only";
 
 import { prisma } from "@/lib/db/client";
 import type { CompanyApprovalStatus } from "@/lib/db/generated/enums";
+import {
+  pageApplicationsForAdmin,
+  pageCompaniesForAdmin,
+  pageJobPostingsForAdmin,
+  pageStudentsForAdmin,
+  softDeleteCompanyProfileById,
+  softDeleteJobPostingById,
+  softDeleteStudentByUserId,
+  listCompaniesForFilterDropdown,
+  type AdminApplicationFilters,
+  type AdminApplicationRow,
+  type AdminCompanyFilters,
+  type AdminCompanyRow,
+  type AdminJobFilters,
+  type AdminJobRow,
+  type AdminStudentFilters,
+  type AdminStudentRow,
+  type Paged,
+  type Page,
+} from "@/server/repositories/admin-repository";
 
 /**
  * Admin-only mutations. This is the **single sanctioned path** for
@@ -70,9 +90,127 @@ export async function setCompanyApprovalStatus(
 }
 
 /**
- * Read-only listing for the admin /admin/companies page. Includes the
- * latest approval-change event timestamp so the table can show "last
- * activity" without any extra joins. Excludes soft-deleted rows.
+ * Re-validates the supplied user id is actually a non-soft-deleted
+ * ADMIN. Used by every admin list/mutate method so a misrouted action
+ * or stale session can't slip through.
+ */
+async function ensureAdmin(userId: string): Promise<boolean> {
+  const row = await prisma.user.findFirst({
+    where: { id: userId, role: "ADMIN", deletedAt: null },
+    select: { id: true },
+  });
+  return Boolean(row);
+}
+
+export type AdminListResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; reason: "not_admin" };
+
+export type AdminMutateResult =
+  | { ok: true }
+  | { ok: false; reason: "not_admin" | "not_found" };
+
+// ---------- Admin list/page operations ----------
+//
+// These are the **only** sanctioned read paths for the /admin/* tables.
+// They wrap the repository with an admin gate.
+//
+// Visibility rule: admin queries deliberately bypass the public
+// visibility rules (no `publicJobPostingVisibilityWhere()`, no
+// "APPROVED-only" filter). The repo includes DRAFT/PAUSED/CLOSED/
+// ARCHIVED postings, PENDING/SUSPENDED companies, etc. by default —
+// the only opt-in filter is `includeDeleted` for soft-deleted rows.
+
+export async function listCompaniesPageForAdmin(
+  adminUserId: string,
+  filters: AdminCompanyFilters,
+  page: Page,
+): Promise<AdminListResult<Paged<AdminCompanyRow>>> {
+  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  return { ok: true, data: await pageCompaniesForAdmin(filters, page) };
+}
+
+export async function listStudentsPageForAdmin(
+  adminUserId: string,
+  filters: AdminStudentFilters,
+  page: Page,
+): Promise<AdminListResult<Paged<AdminStudentRow>>> {
+  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  return { ok: true, data: await pageStudentsForAdmin(filters, page) };
+}
+
+export async function listJobPostingsPageForAdmin(
+  adminUserId: string,
+  filters: AdminJobFilters,
+  page: Page,
+): Promise<AdminListResult<Paged<AdminJobRow>>> {
+  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  return { ok: true, data: await pageJobPostingsForAdmin(filters, page) };
+}
+
+export async function listApplicationsPageForAdmin(
+  adminUserId: string,
+  filters: AdminApplicationFilters,
+  page: Page,
+): Promise<AdminListResult<Paged<AdminApplicationRow>>> {
+  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  return { ok: true, data: await pageApplicationsForAdmin(filters, page) };
+}
+
+export async function listFilterCompaniesForAdmin(
+  adminUserId: string,
+): Promise<AdminListResult<Array<{ id: string; companyName: string }>>> {
+  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  return { ok: true, data: await listCompaniesForFilterDropdown() };
+}
+
+// ---------- Admin destructive actions ----------
+
+export async function softDeleteCompanyAsAdmin(
+  adminUserId: string,
+  companyProfileId: string,
+): Promise<AdminMutateResult> {
+  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  const r = await softDeleteCompanyProfileById(companyProfileId);
+  if (!r.ok) return { ok: false, reason: "not_found" };
+  await prisma.activityEvent.create({
+    data: {
+      type: "COMPANY_APPROVAL_CHANGED",
+      actorUserId: adminUserId,
+      entityType: "CompanyProfile",
+      entityId: companyProfileId,
+      metadataJson: { action: "soft_delete" },
+    },
+  });
+  return { ok: true };
+}
+
+export async function softDeleteStudentAsAdmin(
+  adminUserId: string,
+  studentUserId: string,
+): Promise<AdminMutateResult> {
+  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  const r = await softDeleteStudentByUserId(studentUserId);
+  if (!r.ok) return { ok: false, reason: "not_found" };
+  return { ok: true };
+}
+
+export async function softDeleteJobPostingAsAdmin(
+  adminUserId: string,
+  jobPostingId: string,
+): Promise<AdminMutateResult> {
+  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  const r = await softDeleteJobPostingById(jobPostingId);
+  if (!r.ok) return { ok: false, reason: "not_found" };
+  return { ok: true };
+}
+
+/**
+ * Legacy unfiltered listing used by the original Task 8 minimal
+ * companies page. The new paged path supersedes it; kept exported so
+ * existing callers and tests don't break in this commit.
+ *
+ * @deprecated Use `listCompaniesPageForAdmin` instead.
  */
 export async function listCompaniesForAdmin(): Promise<
   Array<{

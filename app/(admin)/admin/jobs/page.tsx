@@ -8,41 +8,45 @@ import {
 import { AdminPagination } from "@/features/admin/admin-pagination";
 import { AdminTable, type AdminTableColumn } from "@/features/admin/admin-table";
 import { ConfirmFormButton } from "@/features/admin/confirm-form-button";
-import {
-  setCompanyApprovalAction,
-  softDeleteCompanyAdminAction,
-} from "@/features/admin/actions";
-import { Button } from "@/components/ui/button";
-import type { CompanyApprovalStatus } from "@/lib/db/generated/enums";
+import { softDeleteJobPostingAdminAction } from "@/features/admin/actions";
+import type { JobPostingStatus } from "@/lib/db/generated/enums";
 import { requireRole } from "@/lib/auth/guards";
 import {
   ADMIN_PAGE_SIZE,
-  type AdminCompanyRow,
+  type AdminJobRow,
 } from "@/server/repositories/admin-repository";
 import {
-  listCompaniesPageForAdmin,
+  listFilterCompaniesForAdmin,
+  listJobPostingsPageForAdmin,
 } from "@/server/services/admin-service";
 import { listProgramTags } from "@/server/services/admin-metrics-service";
 
 export const metadata = {
-  title: "Admin · Companies",
+  title: "Admin · Job postings",
 };
 
-const APPROVAL_OPTIONS = [
+const STATUS_OPTIONS = [
   { value: "", label: "Any status" },
-  { value: "PENDING", label: "Pending" },
-  { value: "APPROVED", label: "Approved" },
-  { value: "SUSPENDED", label: "Suspended" },
+  { value: "DRAFT", label: "Draft" },
+  { value: "PUBLISHED", label: "Published" },
+  { value: "PAUSED", label: "Paused" },
+  { value: "CLOSED", label: "Closed" },
+  { value: "ARCHIVED", label: "Archived" },
 ];
-
-const VALID_APPROVALS = new Set(["PENDING", "APPROVED", "SUSPENDED"]);
+const VALID_STATUSES = new Set([
+  "DRAFT",
+  "PUBLISHED",
+  "PAUSED",
+  "CLOSED",
+  "ARCHIVED",
+]);
 
 function readParam(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] ?? "";
   return value ?? "";
 }
 
-export default async function AdminCompaniesPage({
+export default async function AdminJobsPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -51,22 +55,24 @@ export default async function AdminCompaniesPage({
   const raw = await searchParams;
 
   const q = readParam(raw.q).trim();
-  const approvalRaw = readParam(raw.approvalStatus).trim();
+  const statusRaw = readParam(raw.status).trim();
   const programTag = readParam(raw.programTag).trim() || null;
+  const companyProfileId = readParam(raw.companyProfileId).trim() || undefined;
   const includeDeleted = readParam(raw.includeDeleted) === "1";
   const page = Math.max(1, Number.parseInt(readParam(raw.page) || "1", 10) || 1);
 
-  const approvalStatus = VALID_APPROVALS.has(approvalRaw)
-    ? (approvalRaw as CompanyApprovalStatus)
+  const status = VALID_STATUSES.has(statusRaw)
+    ? (statusRaw as JobPostingStatus)
     : undefined;
 
-  const [pageR, tagsR] = await Promise.all([
-    listCompaniesPageForAdmin(
+  const [pageR, tagsR, coR] = await Promise.all([
+    listJobPostingsPageForAdmin(
       user.id,
-      { q, approvalStatus, programTag, includeDeleted },
+      { q, status, companyProfileId, programTag, includeDeleted },
       { page, pageSize: ADMIN_PAGE_SIZE },
     ),
     listProgramTags(user.id),
+    listFilterCompaniesForAdmin(user.id),
   ]);
   if (!pageR.ok) {
     return (
@@ -78,24 +84,25 @@ export default async function AdminCompaniesPage({
     );
   }
   const tags = tagsR.ok ? tagsR.data : [];
+  const companies = coR.ok ? coR.data : [];
   const data = pageR.data;
   const hasFilters =
     q.length > 0 ||
-    Boolean(approvalStatus) ||
+    Boolean(status) ||
     Boolean(programTag) ||
+    Boolean(companyProfileId) ||
     includeDeleted;
 
-  const columns: AdminTableColumn<AdminCompanyRow>[] = [
+  const columns: AdminTableColumn<AdminJobRow>[] = [
     {
-      key: "company",
-      header: "Company",
+      key: "posting",
+      header: "Posting",
       width: "wide",
       cell: (r) => (
         <div>
-          <p className="font-medium">{r.companyName}</p>
+          <p className="font-medium">{r.title}</p>
           <p className="text-xs text-muted-foreground">
-            /{r.slug}
-            {r.contactEmail ? <> · {r.contactEmail}</> : null}
+            {r.company.companyName} · /{r.jobSlug}
             {r.programTag ? <> · tag {r.programTag}</> : null}
           </p>
         </div>
@@ -106,7 +113,14 @@ export default async function AdminCompaniesPage({
       header: "Status",
       cell: (r) => (
         <div className="flex flex-col items-start gap-1">
-          <StatusBadge status={r.approvalStatus} />
+          <span className="rounded-full border border-border bg-background px-2 py-0.5 font-mono text-xs">
+            {r.status}
+          </span>
+          {r.company.approvalStatus !== "APPROVED" ? (
+            <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 font-mono text-[10px] text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+              Co {r.company.approvalStatus}
+            </span>
+          ) : null}
           {r.deletedAt ? (
             <span className="rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 font-mono text-[10px] text-destructive">
               DELETED
@@ -116,22 +130,22 @@ export default async function AdminCompaniesPage({
       ),
     },
     {
-      key: "postings",
-      header: "Postings",
-      cell: (r) => (
-        <p className="font-mono text-xs">{r.jobPostingCount}</p>
-      ),
+      key: "applicants",
+      header: "Applicants",
+      cell: (r) => <p className="font-mono text-xs">{r.applicationCount}</p>,
     },
     {
-      key: "updated",
-      header: "Updated",
+      key: "published",
+      header: "Published",
       cell: (r) => (
         <p className="text-xs text-muted-foreground">
-          {r.updatedAt.toLocaleDateString(undefined, {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          })}
+          {r.publishedAt
+            ? r.publishedAt.toLocaleDateString(undefined, {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })
+            : "—"}
         </p>
       ),
     },
@@ -139,22 +153,16 @@ export default async function AdminCompaniesPage({
       key: "actions",
       header: "",
       align: "right",
-      cell: (r) => (
-        <div className="flex flex-wrap justify-end gap-2">
-          <ApprovalButton id={r.id} target="APPROVED" current={r.approvalStatus} />
-          <ApprovalButton id={r.id} target="PENDING" current={r.approvalStatus} />
-          <ApprovalButton id={r.id} target="SUSPENDED" current={r.approvalStatus} />
-          {!r.deletedAt ? (
-            <form action={softDeleteCompanyAdminAction}>
-              <input type="hidden" name="id" value={r.id} />
-              <ConfirmFormButton
-                label="Delete"
-                confirmMessage={`Soft-delete ${r.companyName}? Postings will hide publicly; data is recoverable.`}
-              />
-            </form>
-          ) : null}
-        </div>
-      ),
+      cell: (r) =>
+        !r.deletedAt ? (
+          <form action={softDeleteJobPostingAdminAction}>
+            <input type="hidden" name="id" value={r.id} />
+            <ConfirmFormButton
+              label="Delete"
+              confirmMessage={`Soft-delete posting "${r.title}"? It will hide from the public board.`}
+            />
+          </form>
+        ) : null,
     },
   ];
 
@@ -164,11 +172,12 @@ export default async function AdminCompaniesPage({
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Admin
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight">Companies</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Job postings</h1>
         <p className="text-sm text-muted-foreground">
-          Approve, suspend, or move a company back to pending. Soft-delete
-          when the account should disappear from public surfaces. Approval
-          changes log to the activity feed.
+          Cross-company view of every posting. Includes drafts, paused,
+          closed, archived, and postings on pending or suspended companies
+          — admin visibility deliberately bypasses the public visibility
+          rules.
         </p>
         <p className="text-xs text-muted-foreground">
           <Link className="hover:text-foreground hover:underline" href="/admin">
@@ -177,18 +186,27 @@ export default async function AdminCompaniesPage({
         </p>
       </header>
       <section className="mx-auto w-full max-w-6xl space-y-3">
-        <AdminFilterBar resetHref="/admin/companies" hasAny={hasFilters}>
+        <AdminFilterBar resetHref="/admin/jobs" hasAny={hasFilters}>
           <TextField
             name="q"
             label="Search"
             defaultValue={q}
-            placeholder="Name, slug, or email"
+            placeholder="Title, description, or company"
           />
           <SelectField
-            name="approvalStatus"
-            label="Approval"
-            defaultValue={approvalRaw}
-            options={APPROVAL_OPTIONS}
+            name="status"
+            label="Status"
+            defaultValue={statusRaw}
+            options={STATUS_OPTIONS}
+          />
+          <SelectField
+            name="companyProfileId"
+            label="Company"
+            defaultValue={companyProfileId ?? ""}
+            options={[
+              { value: "", label: "Any company" },
+              ...companies.map((c) => ({ value: c.id, label: c.companyName })),
+            ]}
           />
           <SelectField
             name="programTag"
@@ -212,10 +230,10 @@ export default async function AdminCompaniesPage({
         <AdminTable
           rows={data.rows}
           columns={columns}
-          empty="No companies match those filters."
+          empty="No postings match those filters."
         />
         <AdminPagination
-          basePath="/admin/companies"
+          basePath="/admin/jobs"
           searchParams={raw}
           page={data.page}
           pageSize={data.pageSize}
@@ -223,52 +241,5 @@ export default async function AdminCompaniesPage({
         />
       </section>
     </main>
-  );
-}
-
-function ApprovalButton({
-  id,
-  target,
-  current,
-}: {
-  id: string;
-  target: CompanyApprovalStatus;
-  current: CompanyApprovalStatus;
-}) {
-  const labels: Record<CompanyApprovalStatus, string> = {
-    APPROVED: "Approve",
-    PENDING: "Set pending",
-    SUSPENDED: "Suspend",
-  };
-  const isCurrent = target === current;
-  return (
-    <form action={setCompanyApprovalAction}>
-      <input type="hidden" name="companyProfileId" value={id} />
-      <input type="hidden" name="newStatus" value={target} />
-      <Button
-        type="submit"
-        size="sm"
-        variant={target === "SUSPENDED" ? "destructive" : "outline"}
-        disabled={isCurrent}
-      >
-        {labels[target]}
-      </Button>
-    </form>
-  );
-}
-
-function StatusBadge({ status }: { status: CompanyApprovalStatus }) {
-  const tone =
-    status === "APPROVED"
-      ? "border-border bg-card text-foreground"
-      : status === "PENDING"
-        ? "border-border bg-muted/40 text-foreground"
-        : "border-destructive/40 bg-destructive/10 text-destructive";
-  return (
-    <span
-      className={`inline-block rounded-full border px-2 py-0.5 font-mono text-xs ${tone}`}
-    >
-      {status}
-    </span>
   );
 }
