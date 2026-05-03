@@ -144,6 +144,21 @@ async function resolveCompany(userId: string) {
   });
 }
 
+/**
+ * Tenant-side parent-row visibility. A thread is invisible (read AND
+ * write) once any of its parents has been soft-deleted: the posting,
+ * the owning company, or the student's user account. Historical rows
+ * still live in the DB for /admin/* and audit, but normal app surfaces
+ * exclude them.
+ *
+ * Mirrors application-service.listApplicationsForCompany — keep these
+ * predicates aligned if either side changes.
+ */
+const APPLICATION_PARENTS_LIVE = {
+  jobPosting: { deletedAt: null, companyProfile: { deletedAt: null } },
+  studentProfile: { user: { deletedAt: null } },
+} as const;
+
 // ---------- Reads ----------
 
 export async function listThreadsForStudent(
@@ -153,7 +168,12 @@ export async function listThreadsForStudent(
   if (!profile) return [];
 
   const threads = await prisma.messageThread.findMany({
-    where: { application: { studentProfileId: profile.id } },
+    where: {
+      application: {
+        studentProfileId: profile.id,
+        ...APPLICATION_PARENTS_LIVE,
+      },
+    },
     orderBy: { updatedAt: "desc" },
     select: {
       id: true,
@@ -230,7 +250,10 @@ export async function listThreadsForCompany(
 
   const threads = await prisma.messageThread.findMany({
     where: {
-      application: { jobPosting: { companyProfileId: company.id } },
+      application: {
+        jobPosting: { companyProfileId: company.id, deletedAt: null },
+        studentProfile: { user: { deletedAt: null } },
+      },
     },
     orderBy: { updatedAt: "desc" },
     select: {
@@ -315,7 +338,10 @@ export async function getThreadForStudent(
   const thread = await prisma.messageThread.findFirst({
     where: {
       id: threadId,
-      application: { studentProfileId: profile.id },
+      application: {
+        studentProfileId: profile.id,
+        ...APPLICATION_PARENTS_LIVE,
+      },
     },
     select: {
       id: true,
@@ -401,7 +427,10 @@ export async function getThreadForCompany(
   const thread = await prisma.messageThread.findFirst({
     where: {
       id: threadId,
-      application: { jobPosting: { companyProfileId: company.id } },
+      application: {
+        jobPosting: { companyProfileId: company.id, deletedAt: null },
+        studentProfile: { user: { deletedAt: null } },
+      },
     },
     select: {
       id: true,
@@ -485,13 +514,14 @@ export async function startThreadAsCompany(
   const company = await resolveCompany(companyUserId);
   if (!company) return { ok: false, reason: "forbidden" };
 
-  // The application must belong to one of this company's postings.
-  // Cross-tenant probe collapses to "forbidden" so we never leak
-  // existence of an application owned by another company.
+  // The application must belong to one of this company's postings,
+  // and all parents (posting, student-user) must still be live —
+  // otherwise the company can't usefully start a thread.
   const application = await prisma.application.findFirst({
     where: {
       id: applicationId,
-      jobPosting: { companyProfileId: company.id },
+      jobPosting: { companyProfileId: company.id, deletedAt: null },
+      studentProfile: { user: { deletedAt: null } },
     },
     select: { id: true, status: true },
   });
@@ -579,7 +609,10 @@ export async function sendMessageAsStudent(
   const thread = await prisma.messageThread.findFirst({
     where: {
       id: threadId,
-      application: { studentProfileId: profile.id },
+      application: {
+        studentProfileId: profile.id,
+        ...APPLICATION_PARENTS_LIVE,
+      },
     },
     select: {
       id: true,
@@ -634,7 +667,10 @@ export async function sendMessageAsCompany(
   const thread = await prisma.messageThread.findFirst({
     where: {
       id: threadId,
-      application: { jobPosting: { companyProfileId: company.id } },
+      application: {
+        jobPosting: { companyProfileId: company.id, deletedAt: null },
+        studentProfile: { user: { deletedAt: null } },
+      },
     },
     select: {
       id: true,
@@ -681,7 +717,12 @@ export async function countUnreadForStudent(
     where: {
       readAt: null,
       senderUser: { role: { not: "STUDENT" } },
-      thread: { application: { studentProfileId: profile.id } },
+      thread: {
+        application: {
+          studentProfileId: profile.id,
+          ...APPLICATION_PARENTS_LIVE,
+        },
+      },
     },
   });
 }
@@ -700,7 +741,10 @@ export async function countUnreadForCompany(
       readAt: null,
       senderUser: { role: { not: "COMPANY" } },
       thread: {
-        application: { jobPosting: { companyProfileId: company.id } },
+        application: {
+          jobPosting: { companyProfileId: company.id, deletedAt: null },
+          studentProfile: { user: { deletedAt: null } },
+        },
       },
     },
   });
@@ -720,7 +764,10 @@ export async function getThreadIdForApplicationAsCompany(
   const thread = await prisma.messageThread.findFirst({
     where: {
       applicationId,
-      application: { jobPosting: { companyProfileId: company.id } },
+      application: {
+        jobPosting: { companyProfileId: company.id, deletedAt: null },
+        studentProfile: { user: { deletedAt: null } },
+      },
     },
     select: { id: true },
   });

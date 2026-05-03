@@ -265,7 +265,15 @@ export default async function AdminDashboardPage({
         className="mx-auto w-full max-w-6xl rounded-lg border border-border bg-card p-5"
         aria-label="Recent activity"
       >
-        <h2 className="text-lg font-semibold">Recent activity</h2>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-lg font-semibold">Recent activity</h2>
+          <Link
+            href="/admin/activity"
+            className="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
+          >
+            View full audit log →
+          </Link>
+        </div>
         {d.recentActivity.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">
             No activity yet.

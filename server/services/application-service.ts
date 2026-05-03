@@ -284,7 +284,14 @@ export async function listApplicationsForCompany(
   if (!company) return [];
 
   const rows = await prisma.application.findMany({
-    where: { jobPosting: { companyProfileId: company.id } },
+    // Exclude rows whose parent records were soft-deleted by an
+    // admin: the company can't usefully act on them and the student's
+    // resume snapshot link would dangle. Historical view still lives
+    // on /admin/applications which deliberately shows everything.
+    where: {
+      jobPosting: { companyProfileId: company.id, deletedAt: null },
+      studentProfile: { user: { deletedAt: null } },
+    },
     orderBy: [{ status: "asc" }, { appliedAt: "desc" }],
     select: {
       id: true,
@@ -448,13 +455,16 @@ export async function withdrawApplicationByStudent(
       where: { id: application.id },
       data: { status: "WITHDRAWN" },
     }),
+    // Dedicated event so the admin feed and any future notification
+    // pipeline can distinguish student-driven withdrawal from
+    // company-driven status changes.
     prisma.activityEvent.create({
       data: {
-        type: "APPLICATION_STATUS_CHANGED",
+        type: "APPLICATION_WITHDRAWN",
         actorUserId: studentUserId,
         entityType: "Application",
         entityId: application.id,
-        metadataJson: { from: application.status, to: "WITHDRAWN" },
+        metadataJson: { from: application.status },
       },
     }),
   ]);

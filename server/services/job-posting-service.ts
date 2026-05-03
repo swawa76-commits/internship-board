@@ -232,6 +232,29 @@ export async function createJobPosting(
         },
         select: { id: true, slug: true },
       });
+      // Audit: emit JOB_POSTING_CREATED, plus JOB_POSTING_PUBLISHED if
+      // the posting was created already-public (skipping the draft
+      // step). This keeps the feed consistent with the lifecycle
+      // transitions emitted in transitionJobPostingStatus / update.
+      await prisma.activityEvent.create({
+        data: {
+          type: "JOB_POSTING_CREATED",
+          actorUserId: companyUserId,
+          entityType: "JobPosting",
+          entityId: created.id,
+          metadataJson: { title: input.title, status: input.status },
+        },
+      });
+      if (input.status === "PUBLISHED") {
+        await prisma.activityEvent.create({
+          data: {
+            type: "JOB_POSTING_PUBLISHED",
+            actorUserId: companyUserId,
+            entityType: "JobPosting",
+            entityId: created.id,
+          },
+        });
+      }
       return { ok: true, id: created.id, slug: created.slug };
     } catch (err) {
       if (!isSlugCollision(err)) throw err;
@@ -292,6 +315,19 @@ export async function updateJobPosting(
       publishedAt,
     },
   });
+  // Audit: catch the rising edge of "first publish via the edit form".
+  // Other status changes flow through transitionJobPostingStatus and
+  // log there; we don't double-fire from this path.
+  if (input.status === "PUBLISHED" && existing.status !== "PUBLISHED") {
+    await prisma.activityEvent.create({
+      data: {
+        type: "JOB_POSTING_PUBLISHED",
+        actorUserId: companyUserId,
+        entityType: "JobPosting",
+        entityId: owned.postingId,
+      },
+    });
+  }
   return { ok: true, id: owned.postingId };
 }
 
@@ -364,6 +400,23 @@ export async function transitionJobPostingStatus(
     where: { id: owned.postingId },
     data: { status: target, publishedAt },
   });
+
+  const TRANSITION_EVENT = {
+    PUBLISHED: "JOB_POSTING_PUBLISHED",
+    PAUSED: "JOB_POSTING_PAUSED",
+    CLOSED: "JOB_POSTING_CLOSED",
+    ARCHIVED: "JOB_POSTING_ARCHIVED",
+  } as const;
+  await prisma.activityEvent.create({
+    data: {
+      type: TRANSITION_EVENT[target],
+      actorUserId: companyUserId,
+      entityType: "JobPosting",
+      entityId: owned.postingId,
+      metadataJson: { from: existing.status, to: target },
+    },
+  });
+
   return { ok: true, id: owned.postingId, from: existing.status, to: target };
 }
 
@@ -376,6 +429,14 @@ export async function softDeleteJobPosting(
   await prisma.jobPosting.update({
     where: { id: owned.postingId },
     data: { deletedAt: new Date() },
+  });
+  await prisma.activityEvent.create({
+    data: {
+      type: "JOB_POSTING_SOFT_DELETED",
+      actorUserId: companyUserId,
+      entityType: "JobPosting",
+      entityId: owned.postingId,
+    },
   });
   return { ok: true };
 }

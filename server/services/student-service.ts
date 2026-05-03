@@ -68,10 +68,29 @@ export async function recomputeAndPersistCompleteness(
     projectCount,
   });
 
+  // Detect the rising-edge transition incomplete -> complete and emit
+  // an audit event exactly once. Re-saving an already-complete profile
+  // doesn't re-fire the event.
+  const prior = await prisma.studentProfile.findUnique({
+    where: { id: studentProfileId },
+    select: { isProfileComplete: true, userId: true },
+  });
+
   await prisma.studentProfile.update({
     where: { id: studentProfileId },
     data: { isProfileComplete: result.isComplete },
   });
+
+  if (prior && !prior.isProfileComplete && result.isComplete) {
+    await prisma.activityEvent.create({
+      data: {
+        type: "STUDENT_PROFILE_COMPLETED",
+        actorUserId: prior.userId,
+        entityType: "StudentProfile",
+        entityId: studentProfileId,
+      },
+    });
+  }
 
   return { isComplete: result.isComplete, percent: result.percent };
 }

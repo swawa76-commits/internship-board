@@ -42,6 +42,18 @@ export async function createUserWithCredentials(
     select: { id: true },
   });
 
+  // Audit trail: distinct event per role makes the admin feed
+  // immediately readable without metadata lookups.
+  await prisma.activityEvent.create({
+    data: {
+      type: input.role === "STUDENT" ? "STUDENT_SIGNUP" : "COMPANY_SIGNUP",
+      actorUserId: user.id,
+      entityType: "User",
+      entityId: user.id,
+      metadataJson: { email: input.email },
+    },
+  });
+
   return { ok: true, userId: user.id };
 }
 

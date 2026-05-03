@@ -22,6 +22,12 @@ import {
   type Paged,
   type Page,
 } from "@/server/repositories/admin-repository";
+import {
+  listActivityEntityTypes,
+  pageActivityForAdmin,
+  type ActivityFilters,
+  type ActivityRow,
+} from "@/server/repositories/activity-repository";
 
 /**
  * Admin-only mutations. This is the **single sanctioned path** for
@@ -164,6 +170,24 @@ export async function listFilterCompaniesForAdmin(
   return { ok: true, data: await listCompaniesForFilterDropdown() };
 }
 
+// ---------- Activity audit log ----------
+
+export async function listActivityPageForAdmin(
+  adminUserId: string,
+  filters: ActivityFilters,
+  page: Page,
+): Promise<AdminListResult<Paged<ActivityRow>>> {
+  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  return { ok: true, data: await pageActivityForAdmin(filters, page) };
+}
+
+export async function listActivityEntityTypesForAdmin(
+  adminUserId: string,
+): Promise<AdminListResult<string[]>> {
+  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  return { ok: true, data: await listActivityEntityTypes() };
+}
+
 // ---------- Admin destructive actions ----------
 
 export async function softDeleteCompanyAsAdmin(
@@ -175,11 +199,10 @@ export async function softDeleteCompanyAsAdmin(
   if (!r.ok) return { ok: false, reason: "not_found" };
   await prisma.activityEvent.create({
     data: {
-      type: "COMPANY_APPROVAL_CHANGED",
+      type: "COMPANY_SOFT_DELETED",
       actorUserId: adminUserId,
       entityType: "CompanyProfile",
       entityId: companyProfileId,
-      metadataJson: { action: "soft_delete" },
     },
   });
   return { ok: true };
@@ -192,6 +215,14 @@ export async function softDeleteStudentAsAdmin(
   if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
   const r = await softDeleteStudentByUserId(studentUserId);
   if (!r.ok) return { ok: false, reason: "not_found" };
+  await prisma.activityEvent.create({
+    data: {
+      type: "STUDENT_SOFT_DELETED",
+      actorUserId: adminUserId,
+      entityType: "User",
+      entityId: studentUserId,
+    },
+  });
   return { ok: true };
 }
 
@@ -202,6 +233,14 @@ export async function softDeleteJobPostingAsAdmin(
   if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
   const r = await softDeleteJobPostingById(jobPostingId);
   if (!r.ok) return { ok: false, reason: "not_found" };
+  await prisma.activityEvent.create({
+    data: {
+      type: "JOB_POSTING_SOFT_DELETED",
+      actorUserId: adminUserId,
+      entityType: "JobPosting",
+      entityId: jobPostingId,
+    },
+  });
   return { ok: true };
 }
 

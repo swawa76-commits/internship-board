@@ -178,6 +178,21 @@ export async function upsertCompanyProfile(
   });
   const { isComplete } = calculateCompanyCompleteness(fresh);
 
+  // Audit: distinct event on the first save so the admin feed shows
+  // "company profile created" alongside the signup. Subsequent edits
+  // don't re-fire — they're noise.
+  if (isFirstSave) {
+    await prisma.activityEvent.create({
+      data: {
+        type: "COMPANY_PROFILE_CREATED",
+        actorUserId: userId,
+        entityType: "CompanyProfile",
+        entityId: companyProfileId,
+        metadataJson: { companyName: fresh.companyName, slug: fresh.slug },
+      },
+    });
+  }
+
   return { ok: true, companyProfileId, isComplete, isFirstSave };
 }
 
