@@ -29,7 +29,8 @@ export type SendMessageFailureReason =
   | "forbidden"
   | "thread_not_found"
   | "empty"
-  | "students_cannot_initiate";
+  | "students_cannot_initiate"
+  | "thread_closed";
 
 export type SendMessageResult =
   | { ok: true; messageId: string }
@@ -38,11 +39,29 @@ export type SendMessageResult =
 export type StartThreadFailureReason =
   | "forbidden"
   | "application_not_found"
-  | "empty";
+  | "empty"
+  | "thread_closed";
 
 export type StartThreadResult =
   | { ok: true; threadId: string; messageId: string }
   | { ok: false; reason: StartThreadFailureReason };
+
+/**
+ * Application statuses that close a thread to new sends. Reads are
+ * still allowed — the historical conversation should remain visible
+ * to both sides. Source of truth for this rule.
+ *
+ *   REJECTED   — company-side terminal: chat closed.
+ *   WITHDRAWN  — student-side terminal: chat closed.
+ *   APPLIED / IN_REVIEW / INTERVIEWING / OFFER — chat open.
+ *
+ * OFFER deliberately stays open: it's where logistics and acceptance
+ * conversation happen.
+ */
+const CLOSED_STATUSES = new Set<ApplicationStatus>(["REJECTED", "WITHDRAWN"]);
+function isClosed(status: ApplicationStatus): boolean {
+  return CLOSED_STATUSES.has(status);
+}
 
 export type ThreadListItem = {
   threadId: string;
@@ -71,6 +90,13 @@ export type ThreadListItem = {
 export type ThreadDetail = {
   threadId: string;
   applicationId: string;
+  applicationStatus: ApplicationStatus;
+  /**
+   * True iff the underlying application is in a terminal state
+   * (REJECTED or WITHDRAWN). Both sides can still read the thread,
+   * but new sends are rejected at the service layer.
+   */
+  threadClosed: boolean;
   jobPosting: {
     id: string;
     title: string;
@@ -80,7 +106,11 @@ export type ThreadDetail = {
     name: string;
     companySlug: string | null;
   };
-  /** Whether the viewer is allowed to send into this thread right now. */
+  /**
+   * Whether the viewer is allowed to send into this thread right now.
+   * False when the thread is closed OR (for students) when no company
+   * has initiated the thread yet.
+   */
   canReply: boolean;
   messages: Array<{
     id: string;
@@ -293,6 +323,7 @@ export async function getThreadForStudent(
       application: {
         select: {
           id: true,
+          status: true,
           jobPosting: {
             select: {
               id: true,
@@ -329,14 +360,16 @@ export async function getThreadForStudent(
   });
 
   // A student can reply only if a company already initiated this
-  // thread. The schema currently always has the company as initiator
-  // (see startThreadAsCompany), but we keep the runtime check explicit
-  // so that future product changes can't silently flip the rule.
-  const canReply = thread.initiatedByUserId !== studentUserId;
+  // thread AND the application isn't in a terminal state. Pin both
+  // checks server-side; the UI hint is convenience only.
+  const closed = isClosed(thread.application.status);
+  const canReply = !closed && thread.initiatedByUserId !== studentUserId;
 
   return {
     threadId: thread.id,
     applicationId: thread.application.id,
+    applicationStatus: thread.application.status,
+    threadClosed: closed,
     jobPosting: {
       id: thread.application.jobPosting.id,
       title: thread.application.jobPosting.title,
@@ -375,6 +408,7 @@ export async function getThreadForCompany(
       application: {
         select: {
           id: true,
+          status: true,
           jobPosting: { select: { id: true, title: true, slug: true } },
           studentProfile: { select: { fullName: true } },
         },
@@ -403,9 +437,13 @@ export async function getThreadForCompany(
     data: { readAt: new Date() },
   });
 
+  const closed = isClosed(thread.application.status);
+
   return {
     threadId: thread.id,
     applicationId: thread.application.id,
+    applicationStatus: thread.application.status,
+    threadClosed: closed,
     jobPosting: {
       id: thread.application.jobPosting.id,
       title: thread.application.jobPosting.title,
@@ -415,7 +453,7 @@ export async function getThreadForCompany(
       name: thread.application.studentProfile.fullName,
       companySlug: null,
     },
-    canReply: true,
+    canReply: !closed,
     messages: thread.messages.map((m) => ({
       id: m.id,
       body: m.body,
@@ -455,9 +493,12 @@ export async function startThreadAsCompany(
       id: applicationId,
       jobPosting: { companyProfileId: company.id },
     },
-    select: { id: true },
+    select: { id: true, status: true },
   });
   if (!application) return { ok: false, reason: "forbidden" };
+  if (isClosed(application.status)) {
+    return { ok: false, reason: "thread_closed" };
+  }
 
   // Idempotency: if a thread already exists for this application,
   // reuse it rather than creating a duplicate. Keeps the inbox clean.
@@ -540,12 +581,19 @@ export async function sendMessageAsStudent(
       id: threadId,
       application: { studentProfileId: profile.id },
     },
-    select: { id: true, initiatedByUserId: true },
+    select: {
+      id: true,
+      initiatedByUserId: true,
+      application: { select: { status: true } },
+    },
   });
   if (!thread) return { ok: false, reason: "forbidden" };
 
   if (thread.initiatedByUserId === studentUserId) {
     return { ok: false, reason: "students_cannot_initiate" };
+  }
+  if (isClosed(thread.application.status)) {
+    return { ok: false, reason: "thread_closed" };
   }
 
   const [, message] = await prisma.$transaction([
@@ -588,9 +636,15 @@ export async function sendMessageAsCompany(
       id: threadId,
       application: { jobPosting: { companyProfileId: company.id } },
     },
-    select: { id: true },
+    select: {
+      id: true,
+      application: { select: { status: true } },
+    },
   });
   if (!thread) return { ok: false, reason: "forbidden" };
+  if (isClosed(thread.application.status)) {
+    return { ok: false, reason: "thread_closed" };
+  }
 
   const [, message] = await prisma.$transaction([
     prisma.messageThread.update({
@@ -608,6 +662,48 @@ export async function sendMessageAsCompany(
   ]);
 
   return { ok: true, messageId: message.id };
+}
+
+/**
+ * Total unread messages addressed to the calling student across all
+ * their threads. "Unread for student" = sender is not a student AND
+ * `readAt` is null. Returns 0 for non-students or missing profiles.
+ *
+ * Used by the global nav badge — keep it cheap (a single COUNT, not
+ * a full thread fetch).
+ */
+export async function countUnreadForStudent(
+  studentUserId: string,
+): Promise<number> {
+  const profile = await resolveStudent(studentUserId);
+  if (!profile) return 0;
+  return prisma.message.count({
+    where: {
+      readAt: null,
+      senderUser: { role: { not: "STUDENT" } },
+      thread: { application: { studentProfileId: profile.id } },
+    },
+  });
+}
+
+/**
+ * Total unread messages addressed to the calling company across all
+ * threads on its postings.
+ */
+export async function countUnreadForCompany(
+  companyUserId: string,
+): Promise<number> {
+  const company = await resolveCompany(companyUserId);
+  if (!company) return 0;
+  return prisma.message.count({
+    where: {
+      readAt: null,
+      senderUser: { role: { not: "COMPANY" } },
+      thread: {
+        application: { jobPosting: { companyProfileId: company.id } },
+      },
+    },
+  });
 }
 
 /**

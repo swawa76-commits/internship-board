@@ -46,11 +46,17 @@ export default async function StartThreadPage({
     },
     select: {
       id: true,
+      status: true,
       studentProfile: { select: { fullName: true } },
       jobPosting: { select: { title: true } },
     },
   });
   if (!application) notFound();
+
+  // Mirror the message-service `thread_closed` rule at the route so
+  // we never render a composer that the action will reject.
+  const closed =
+    application.status === "REJECTED" || application.status === "WITHDRAWN";
 
   return (
     <main className="flex flex-1 flex-col gap-6 px-6 py-12">
@@ -68,7 +74,18 @@ export default async function StartThreadPage({
         </p>
       </header>
       <section className="mx-auto w-full max-w-3xl rounded-md border border-border bg-card p-5">
-        <StartThreadForm applicationId={application.id} />
+        {closed ? (
+          <p
+            role="status"
+            className="text-sm text-muted-foreground"
+          >
+            This application is{" "}
+            <span className="font-mono text-xs">{application.status}</span>{" "}
+            — chat is closed and no new threads can be started.
+          </p>
+        ) : (
+          <StartThreadForm applicationId={application.id} />
+        )}
       </section>
     </main>
   );

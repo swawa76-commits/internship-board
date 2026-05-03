@@ -11,6 +11,8 @@ import {
 import { upsertCompanyProfile } from "@/server/services/company-service";
 import { createJobPosting } from "@/server/services/job-posting-service";
 import {
+  countUnreadForCompany,
+  countUnreadForStudent,
   getThreadForCompany,
   getThreadForStudent,
   getThreadIdForApplicationAsCompany,
@@ -20,6 +22,10 @@ import {
   sendMessageAsStudent,
   startThreadAsCompany,
 } from "@/server/services/message-service";
+import {
+  transitionApplicationStatus,
+  withdrawApplicationByStudent,
+} from "@/server/services/application-service";
 import {
   setResumeStorageKey,
   upsertProfileBasics,
@@ -440,5 +446,204 @@ describe.skipIf(skip)("getThreadIdForApplicationAsCompany", () => {
     expect(
       await getThreadIdForApplicationAsCompany(attacker.companyUserId, appId),
     ).toBeNull();
+  });
+});
+
+describe.skipIf(skip)("Patch 1 · terminal-state read-only", () => {
+  it("blocks student sends on a REJECTED application; reads still work", async () => {
+    const stud = await makeStudent("closed-stud-rej");
+    const co = await makeApprovedCoWithJob("closed-stud-rej");
+    const appId = await applicationFor(stud, co.jobId);
+    const start = await startThreadAsCompany(co.companyUserId, appId, "Hi.");
+    if (!start.ok) throw new Error("setup failed");
+
+    // Company moves the app to REJECTED.
+    await transitionApplicationStatus(
+      co.companyUserId,
+      appId,
+      "REJECTED",
+    );
+
+    const send = await sendMessageAsStudent(stud, start.threadId, "Hello?");
+    expect(send.ok).toBe(false);
+    if (send.ok) return;
+    expect(send.reason).toBe("thread_closed");
+
+    // Reads still work and the original messages remain.
+    const detail = await getThreadForStudent(stud, start.threadId);
+    expect(detail).not.toBeNull();
+    expect(detail?.threadClosed).toBe(true);
+    expect(detail?.canReply).toBe(false);
+    expect(detail?.applicationStatus).toBe("REJECTED");
+    expect(detail?.messages.map((m) => m.body)).toContain("Hi.");
+  });
+
+  it("blocks company sends on a REJECTED application; reads still work", async () => {
+    const stud = await makeStudent("closed-co-rej");
+    const co = await makeApprovedCoWithJob("closed-co-rej");
+    const appId = await applicationFor(stud, co.jobId);
+    const start = await startThreadAsCompany(co.companyUserId, appId, "Hi.");
+    if (!start.ok) throw new Error("setup failed");
+
+    await transitionApplicationStatus(
+      co.companyUserId,
+      appId,
+      "REJECTED",
+    );
+
+    const send = await sendMessageAsCompany(
+      co.companyUserId,
+      start.threadId,
+      "Follow-up.",
+    );
+    expect(send.ok).toBe(false);
+    if (send.ok) return;
+    expect(send.reason).toBe("thread_closed");
+
+    const detail = await getThreadForCompany(
+      co.companyUserId,
+      start.threadId,
+    );
+    expect(detail).not.toBeNull();
+    expect(detail?.threadClosed).toBe(true);
+    expect(detail?.canReply).toBe(false);
+  });
+
+  it("blocks both sides on a WITHDRAWN application; reads still work", async () => {
+    const stud = await makeStudent("closed-withdrawn");
+    const co = await makeApprovedCoWithJob("closed-withdrawn");
+    const appId = await applicationFor(stud, co.jobId);
+    const start = await startThreadAsCompany(co.companyUserId, appId, "Hi.");
+    if (!start.ok) throw new Error("setup failed");
+
+    const w = await withdrawApplicationByStudent(stud, appId);
+    expect(w.ok).toBe(true);
+
+    const studSend = await sendMessageAsStudent(stud, start.threadId, "Hello?");
+    expect(studSend.ok).toBe(false);
+    if (!studSend.ok) expect(studSend.reason).toBe("thread_closed");
+
+    const coSend = await sendMessageAsCompany(
+      co.companyUserId,
+      start.threadId,
+      "Hi back.",
+    );
+    expect(coSend.ok).toBe(false);
+    if (!coSend.ok) expect(coSend.reason).toBe("thread_closed");
+
+    // Both sides still read the historical thread.
+    const studDetail = await getThreadForStudent(stud, start.threadId);
+    const coDetail = await getThreadForCompany(co.companyUserId, start.threadId);
+    expect(studDetail?.threadClosed).toBe(true);
+    expect(coDetail?.threadClosed).toBe(true);
+    expect(studDetail?.applicationStatus).toBe("WITHDRAWN");
+  });
+
+  it("OFFER threads remain writable on both sides", async () => {
+    const stud = await makeStudent("offer-open");
+    const co = await makeApprovedCoWithJob("offer-open");
+    const appId = await applicationFor(stud, co.jobId);
+    const start = await startThreadAsCompany(co.companyUserId, appId, "Hi.");
+    if (!start.ok) throw new Error("setup failed");
+
+    // Walk the funnel to OFFER (legal forward path).
+    await transitionApplicationStatus(co.companyUserId, appId, "IN_REVIEW");
+    await transitionApplicationStatus(co.companyUserId, appId, "INTERVIEWING");
+    await transitionApplicationStatus(co.companyUserId, appId, "OFFER");
+
+    const studSend = await sendMessageAsStudent(
+      stud,
+      start.threadId,
+      "Accepting!",
+    );
+    expect(studSend.ok).toBe(true);
+
+    const coSend = await sendMessageAsCompany(
+      co.companyUserId,
+      start.threadId,
+      "Welcome.",
+    );
+    expect(coSend.ok).toBe(true);
+
+    const detail = await getThreadForCompany(co.companyUserId, start.threadId);
+    expect(detail?.threadClosed).toBe(false);
+    expect(detail?.canReply).toBe(true);
+    expect(detail?.applicationStatus).toBe("OFFER");
+  });
+
+  it("rejects starting a brand-new thread on an already-closed application", async () => {
+    const stud = await makeStudent("start-after-rej");
+    const co = await makeApprovedCoWithJob("start-after-rej");
+    const appId = await applicationFor(stud, co.jobId);
+    await transitionApplicationStatus(co.companyUserId, appId, "REJECTED");
+
+    const r = await startThreadAsCompany(co.companyUserId, appId, "Late hi.");
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.reason).toBe("thread_closed");
+  });
+});
+
+describe.skipIf(skip)("Patch 2 · global unread counters", () => {
+  it("student count is scoped to that student and excludes other students' threads", async () => {
+    const studA = await makeStudent("unread-A");
+    const studB = await makeStudent("unread-B");
+    const co = await makeApprovedCoWithJob("unread-target");
+    const appA = await applicationFor(studA, co.jobId);
+    const appB = await applicationFor(studB, co.jobId);
+
+    // Two unread messages for A, one for B.
+    const tA = await startThreadAsCompany(co.companyUserId, appA, "A1");
+    if (!tA.ok) throw new Error("setup failed");
+    await sendMessageAsCompany(co.companyUserId, tA.threadId, "A2");
+    const tB = await startThreadAsCompany(co.companyUserId, appB, "B1");
+    if (!tB.ok) throw new Error("setup failed");
+
+    expect(await countUnreadForStudent(studA)).toBe(2);
+    expect(await countUnreadForStudent(studB)).toBe(1);
+  });
+
+  it("company count is scoped to that company; excludes its own outbound messages", async () => {
+    const stud = await makeStudent("unread-co-scope");
+    const coA = await makeApprovedCoWithJob("unread-coA");
+    const coB = await makeApprovedCoWithJob("unread-coB");
+    const appA = await applicationFor(stud, coA.jobId);
+    const appB = await applicationFor(stud, coB.jobId);
+
+    // CoA initiates; student has not replied. Company outbound shouldn't
+    // count for the company itself.
+    const tA = await startThreadAsCompany(coA.companyUserId, appA, "Hi A");
+    if (!tA.ok) throw new Error("setup failed");
+    const tB = await startThreadAsCompany(coB.companyUserId, appB, "Hi B");
+    if (!tB.ok) throw new Error("setup failed");
+
+    // Student replies once to coA only — that's the inbound message
+    // that should bump coA's unread count, but not coB's.
+    const reply = await sendMessageAsStudent(stud, tA.threadId, "Reply.");
+    expect(reply.ok).toBe(true);
+
+    expect(await countUnreadForCompany(coA.companyUserId)).toBe(1);
+    expect(await countUnreadForCompany(coB.companyUserId)).toBe(0);
+  });
+
+  it("opening a thread decrements the unread count after read-on-load", async () => {
+    const stud = await makeStudent("unread-read");
+    const co = await makeApprovedCoWithJob("unread-read");
+    const appId = await applicationFor(stud, co.jobId);
+    const t = await startThreadAsCompany(co.companyUserId, appId, "Unread.");
+    if (!t.ok) throw new Error("setup failed");
+
+    expect(await countUnreadForStudent(stud)).toBe(1);
+
+    await getThreadForStudent(stud, t.threadId);
+
+    expect(await countUnreadForStudent(stud)).toBe(0);
+  });
+
+  it("returns 0 for non-students / non-companies", async () => {
+    const stud = await makeStudent("unread-role-mismatch");
+    const co = await makeApprovedCoWithJob("unread-role-mismatch");
+    expect(await countUnreadForStudent(co.companyUserId)).toBe(0);
+    expect(await countUnreadForCompany(stud)).toBe(0);
   });
 });

@@ -57,7 +57,17 @@ export default async function StudentThreadPage({
       </section>
 
       <section className="mx-auto w-full max-w-3xl">
-        {thread.canReply ? (
+        {thread.threadClosed ? (
+          <p
+            role="status"
+            className="rounded-md border border-dashed border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
+          >
+            Chat closed — this application is{" "}
+            <span className="font-mono text-xs">{thread.applicationStatus}</span>.
+            You can still read the conversation, but no new replies are
+            accepted.
+          </p>
+        ) : thread.canReply ? (
           <ReplyForm threadId={thread.threadId} role="STUDENT" />
         ) : (
           <p className="rounded-md border border-dashed border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">

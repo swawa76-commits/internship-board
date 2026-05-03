@@ -31,6 +31,7 @@ const FAILURE_MESSAGES: Record<string, string> = {
   empty: "Message can't be empty.",
   students_cannot_initiate:
     "Students can't start a thread — wait for the company to reach out first.",
+  thread_closed: "This conversation is closed and can no longer receive replies.",
 };
 
 /**

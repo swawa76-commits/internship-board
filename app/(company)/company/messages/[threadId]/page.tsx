@@ -42,7 +42,19 @@ export default async function CompanyThreadPage({
       </section>
 
       <section className="mx-auto w-full max-w-3xl">
-        <ReplyForm threadId={thread.threadId} role="COMPANY" />
+        {thread.threadClosed ? (
+          <p
+            role="status"
+            className="rounded-md border border-dashed border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
+          >
+            Chat closed — this application is{" "}
+            <span className="font-mono text-xs">{thread.applicationStatus}</span>.
+            You can still read the conversation, but no new replies are
+            accepted.
+          </p>
+        ) : (
+          <ReplyForm threadId={thread.threadId} role="COMPANY" />
+        )}
       </section>
     </main>
   );
