@@ -2,6 +2,10 @@ import "server-only";
 
 import { prisma } from "@/lib/db/client";
 import type { ApplicationStatus } from "@/lib/db/generated/enums";
+import {
+  dispatchEmail,
+  newMessage,
+} from "@/server/services/email-service";
 
 /**
  * Message service. Tenant isolation is enforced here — no route or
@@ -158,6 +162,71 @@ const APPLICATION_PARENTS_LIVE = {
   jobPosting: { deletedAt: null, companyProfile: { deletedAt: null } },
   studentProfile: { user: { deletedAt: null } },
 } as const;
+
+/**
+ * Post-commit notifier. Resolves the recipient based on sender role
+ * (a student-sent message notifies the company; a company-sent
+ * message notifies the student) and dispatches via email-service.
+ * Best-effort — failures are absorbed by `dispatchEmail`.
+ */
+async function notifyNewMessage(args: {
+  threadId: string;
+  senderRole: "STUDENT" | "COMPANY";
+  body: string;
+}): Promise<void> {
+  const ctx = await prisma.messageThread.findUnique({
+    where: { id: args.threadId },
+    select: {
+      application: {
+        select: {
+          jobPosting: {
+            select: {
+              title: true,
+              companyProfile: {
+                select: {
+                  contactEmail: true,
+                  user: { select: { email: true, deletedAt: true } },
+                },
+              },
+            },
+          },
+          studentProfile: {
+            select: { user: { select: { email: true, deletedAt: true } } },
+          },
+        },
+      },
+    },
+  });
+  if (!ctx) return;
+
+  if (args.senderRole === "STUDENT") {
+    const co = ctx.application.jobPosting.companyProfile;
+    const recipient =
+      co.contactEmail ?? (co.user.deletedAt === null ? co.user.email : null);
+    if (!recipient) return;
+    await dispatchEmail(
+      newMessage({
+        to: recipient,
+        recipientRole: "COMPANY",
+        jobTitle: ctx.application.jobPosting.title,
+        threadId: args.threadId,
+        preview: args.body,
+      }),
+    );
+  } else {
+    const stud = ctx.application.studentProfile.user;
+    if (stud.deletedAt !== null) return;
+    await dispatchEmail(
+      newMessage({
+        to: stud.email,
+        recipientRole: "STUDENT",
+        jobTitle: ctx.application.jobPosting.title,
+        threadId: args.threadId,
+        preview: args.body,
+      }),
+    );
+  }
+}
 
 // ---------- Reads ----------
 
@@ -552,6 +621,11 @@ export async function startThreadAsCompany(
         select: { id: true },
       }),
     ]);
+    await notifyNewMessage({
+      threadId: existing.id,
+      senderRole: "COMPANY",
+      body: cleaned,
+    });
     return { ok: true, threadId: existing.id, messageId: message.id };
   }
 
@@ -581,6 +655,12 @@ export async function startThreadAsCompany(
       },
     });
     return [t, m] as const;
+  });
+
+  await notifyNewMessage({
+    threadId: thread.id,
+    senderRole: "COMPANY",
+    body: cleaned,
   });
 
   return { ok: true, threadId: thread.id, messageId: message.id };
@@ -644,6 +724,12 @@ export async function sendMessageAsStudent(
     }),
   ]);
 
+  await notifyNewMessage({
+    threadId: thread.id,
+    senderRole: "STUDENT",
+    body: cleaned,
+  });
+
   return { ok: true, messageId: message.id };
 }
 
@@ -696,6 +782,12 @@ export async function sendMessageAsCompany(
       select: { id: true },
     }),
   ]);
+
+  await notifyNewMessage({
+    threadId: thread.id,
+    senderRole: "COMPANY",
+    body: cleaned,
+  });
 
   return { ok: true, messageId: message.id };
 }

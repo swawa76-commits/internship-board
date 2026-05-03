@@ -419,6 +419,70 @@ describe.skipIf(skip)("admin activity listing · access control + filters", () =
     for (const r of page2.data.rows) expect(ids1.has(r.id)).toBe(false);
   });
 
+  it("free-text q matches metadataJson contents (e.g. 'OFFER' on status change)", async () => {
+    const admin = await makeAdmin("act-meta");
+    const co = await makeCompany("act-meta", admin);
+    const stud = await makeStudent("act-meta");
+    const job = await createJobPosting(co.companyUserId, {
+      ...POSTING_BASE,
+      title: "Meta search",
+    });
+    if (!job.ok) throw new Error("setup");
+    const a = await submitApplication(stud, {
+      jobPostingId: job.id,
+      coverLetter: null,
+    });
+    if (!a.ok) throw new Error("setup");
+    await transitionApplicationStatus(co.companyUserId, a.applicationId, "IN_REVIEW");
+    await transitionApplicationStatus(co.companyUserId, a.applicationId, "INTERVIEWING");
+    await transitionApplicationStatus(co.companyUserId, a.applicationId, "OFFER");
+
+    // Search for OFFER — must surface the APPLICATION_STATUS_CHANGED
+    // row whose metadata recorded `{ from: 'INTERVIEWING', to: 'OFFER' }`.
+    const r = await listActivityPageForAdmin(
+      admin,
+      { q: "OFFER", entityId: a.applicationId },
+      { page: 1, pageSize: 50 },
+    );
+    if (!r.ok) throw new Error("not admin");
+    expect(
+      r.data.rows.some(
+        (e) =>
+          e.type === "APPLICATION_STATUS_CHANGED" &&
+          JSON.stringify(e.metadataJson).includes("OFFER"),
+      ),
+    ).toBe(true);
+  });
+
+  it("programTag filter surfaces events about an affected entity even when actor has no tag", async () => {
+    const admin = await makeAdmin("act-tag");
+    const tag = `${RUN_ID}-cohortTag`;
+
+    // Tagged student created, then admin (untagged) soft-deletes them.
+    const stud = await makeStudent("act-tag-stud");
+    const profile = await prisma.studentProfile.findUniqueOrThrow({
+      where: { userId: stud },
+      select: { id: true },
+    });
+    await prisma.studentProfile.update({
+      where: { id: profile.id },
+      data: { programTag: tag },
+    });
+    await softDeleteStudentAsAdmin(admin, stud);
+
+    const r = await listActivityPageForAdmin(
+      admin,
+      { programTag: tag, eventType: "STUDENT_SOFT_DELETED" },
+      { page: 1, pageSize: 50 },
+    );
+    if (!r.ok) throw new Error("not admin");
+    expect(
+      r.data.rows.some(
+        (e) => e.type === "STUDENT_SOFT_DELETED" && e.entityId === stud,
+      ),
+    ).toBe(true);
+  });
+
   it("filters by entityType + entityId", async () => {
     const admin = await makeAdmin("act-entity");
     const co = await makeCompany("act-entity", admin);

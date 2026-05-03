@@ -5,6 +5,11 @@ import type {
   ApplicationStatus,
   CompanyApprovalStatus,
 } from "@/lib/db/generated/enums";
+import {
+  companyApplicationReceived,
+  dispatchEmail,
+  studentApplicationStatusChanged,
+} from "@/server/services/email-service";
 import { canCompanyPublishJobsByStatus } from "@/server/services/visibility-service";
 
 /**
@@ -182,6 +187,42 @@ export async function submitApplication(
       },
     }),
   ]);
+
+  // Notify the company AFTER commit. Strictly best-effort.
+  const target = await prisma.application.findUnique({
+    where: { id: application.id },
+    select: {
+      jobPosting: {
+        select: {
+          title: true,
+          companyProfile: {
+            select: {
+              companyName: true,
+              contactEmail: true,
+              user: { select: { email: true, deletedAt: true } },
+            },
+          },
+        },
+      },
+      studentProfile: { select: { fullName: true } },
+    },
+  });
+  if (target) {
+    const co = target.jobPosting.companyProfile;
+    const recipient =
+      co.contactEmail ?? (co.user.deletedAt === null ? co.user.email : null);
+    if (recipient) {
+      await dispatchEmail(
+        companyApplicationReceived({
+          to: recipient,
+          companyName: co.companyName,
+          studentName: target.studentProfile.fullName,
+          jobTitle: target.jobPosting.title,
+          applicationId: application.id,
+        }),
+      );
+    }
+  }
 
   return { ok: true, applicationId: application.id };
 }
@@ -401,6 +442,40 @@ export async function transitionApplicationStatus(
       },
     }),
   ]);
+
+  // Notify the student. Best-effort, post-commit.
+  const target_ctx = await prisma.application.findUnique({
+    where: { id: application.id },
+    select: {
+      jobPosting: {
+        select: {
+          title: true,
+          companyProfile: { select: { companyName: true } },
+        },
+      },
+      studentProfile: {
+        select: {
+          fullName: true,
+          user: { select: { email: true, deletedAt: true } },
+        },
+      },
+    },
+  });
+  if (
+    target_ctx &&
+    target_ctx.studentProfile.user.deletedAt === null
+  ) {
+    await dispatchEmail(
+      studentApplicationStatusChanged({
+        to: target_ctx.studentProfile.user.email,
+        studentName: target_ctx.studentProfile.fullName,
+        jobTitle: target_ctx.jobPosting.title,
+        companyName: target_ctx.jobPosting.companyProfile.companyName,
+        newStatus: target,
+        applicationId: application.id,
+      }),
+    );
+  }
 
   return {
     ok: true,

@@ -3,6 +3,10 @@ import "server-only";
 import { calculateCompanyCompleteness } from "@/lib/companies/completeness";
 import { prisma } from "@/lib/db/client";
 import type { CompanyBasicsInput } from "@/features/companies/schemas";
+import {
+  adminCompanyPending,
+  dispatchEmail,
+} from "@/server/services/email-service";
 
 export type SaveCompanyResult =
   | {
@@ -191,6 +195,22 @@ export async function upsertCompanyProfile(
         metadataJson: { companyName: fresh.companyName, slug: fresh.slug },
       },
     });
+
+    // Notify all active admins so they can review the PENDING company.
+    // Send happens AFTER the DB commit; failures don't block the user.
+    const admins = await prisma.user.findMany({
+      where: { role: "ADMIN", deletedAt: null },
+      select: { email: true },
+    });
+    for (const admin of admins) {
+      await dispatchEmail(
+        adminCompanyPending({
+          to: admin.email,
+          companyName: fresh.companyName,
+          companyProfileId,
+        }),
+      );
+    }
   }
 
   return { ok: true, companyProfileId, isComplete, isFirstSave };

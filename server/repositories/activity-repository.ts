@@ -64,39 +64,112 @@ function offset({ page, pageSize }: Page): number {
   return Math.max(0, (page - 1) * pageSize);
 }
 
-function buildWhere(filters: ActivityFilters): Prisma.ActivityEventWhereInput {
+async function buildWhere(
+  filters: ActivityFilters,
+): Promise<Prisma.ActivityEventWhereInput> {
   const where: Prisma.ActivityEventWhereInput = {};
+  const ands: Prisma.ActivityEventWhereInput[] = [];
+
   if (filters.eventType) where.type = filters.eventType;
   if (filters.actorUserId) where.actorUserId = filters.actorUserId;
   if (filters.entityType) where.entityType = filters.entityType;
   if (filters.entityId) where.entityId = filters.entityId;
 
   if (filters.programTag) {
-    // Match events whose actor is a student/company on this tag.
-    where.actorUser = {
-      OR: [
-        { studentProfile: { programTag: filters.programTag } },
-        { companyProfile: { programTag: filters.programTag } },
-      ],
+    // Match either the actor OR the affected entity on this tag.
+    // Affected-entity match resolves the entity id by entityType
+    // against the relevant table — covers the common case from the
+    // brief: "admin modifies a student in Spring2026; filter by
+    // Spring2026 should surface that event" even though the actor
+    // (admin) has no programTag.
+    const affectedStudent: Prisma.ActivityEventWhereInput = {
+      entityType: "StudentProfile",
+      entityId: {
+        in: (
+          await prisma.studentProfile.findMany({
+            where: { programTag: filters.programTag },
+            select: { id: true },
+          })
+        ).map((r) => r.id),
+      },
     };
+    const affectedStudentByUser: Prisma.ActivityEventWhereInput = {
+      entityType: "User",
+      entityId: {
+        in: (
+          await prisma.studentProfile.findMany({
+            where: { programTag: filters.programTag },
+            select: { userId: true },
+          })
+        ).map((r) => r.userId),
+      },
+    };
+    const affectedCompany: Prisma.ActivityEventWhereInput = {
+      entityType: "CompanyProfile",
+      entityId: {
+        in: (
+          await prisma.companyProfile.findMany({
+            where: { programTag: filters.programTag },
+            select: { id: true },
+          })
+        ).map((r) => r.id),
+      },
+    };
+    const affectedJobPosting: Prisma.ActivityEventWhereInput = {
+      entityType: "JobPosting",
+      entityId: {
+        in: (
+          await prisma.jobPosting.findMany({
+            where: { programTag: filters.programTag },
+            select: { id: true },
+          })
+        ).map((r) => r.id),
+      },
+    };
+    const actorOnTag: Prisma.ActivityEventWhereInput = {
+      actorUser: {
+        OR: [
+          { studentProfile: { programTag: filters.programTag } },
+          { companyProfile: { programTag: filters.programTag } },
+        ],
+      },
+    };
+    ands.push({
+      OR: [
+        actorOnTag,
+        affectedStudent,
+        affectedStudentByUser,
+        affectedCompany,
+        affectedJobPosting,
+      ],
+    });
   }
 
   const q = filters.q?.trim();
   if (q) {
-    // metadataJson search uses Prisma's `string_contains` on the
-    // top-level path — works for the simple key/value blobs we write
-    // (e.g., title, email, status). Combined with a contains on the
-    // actor email so a free-text search matches what an admin would
-    // type.
-    where.OR = [
-      {
-        actorUser: { email: { contains: q, mode: "insensitive" } },
-      },
-      { entityId: { contains: q, mode: "insensitive" } },
-      { entityType: { contains: q, mode: "insensitive" } },
-    ];
+    // Free-text search across actor email, entity columns, AND the
+    // metadataJson blob. Prisma's JSON filters only walk specific
+    // paths, so for blob-wide search we resolve matching ids in a
+    // small companion raw query (`metadataJson::text ILIKE %q%`)
+    // and OR them in. Postgres-only — fine for V1.
+    const like = `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+    const metadataMatches = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "ActivityEvent"
+      WHERE "metadataJson"::text ILIKE ${like}
+    `;
+    ands.push({
+      OR: [
+        {
+          actorUser: { email: { contains: q, mode: "insensitive" } },
+        },
+        { entityId: { contains: q, mode: "insensitive" } },
+        { entityType: { contains: q, mode: "insensitive" } },
+        { id: { in: metadataMatches.map((m) => m.id) } },
+      ],
+    });
   }
 
+  if (ands.length > 0) where.AND = ands;
   return where;
 }
 
@@ -105,7 +178,7 @@ export async function pageActivityForAdmin(
   pageInput: Page,
 ): Promise<Paged<ActivityRow>> {
   const p = clamp(pageInput);
-  const where = buildWhere(filters);
+  const where = await buildWhere(filters);
   const [rows, total] = await Promise.all([
     prisma.activityEvent.findMany({
       where,

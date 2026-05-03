@@ -3,6 +3,10 @@ import "server-only";
 import { prisma } from "@/lib/db/client";
 import type { CompanyApprovalStatus } from "@/lib/db/generated/enums";
 import {
+  companyApprovalChanged,
+  dispatchEmail,
+} from "@/server/services/email-service";
+import {
   pageApplicationsForAdmin,
   pageCompaniesForAdmin,
   pageJobPostingsForAdmin,
@@ -91,6 +95,30 @@ export async function setCompanyApprovalStatus(
       },
     }),
   ]);
+
+  // Notify the company AFTER the transaction commits. We re-read the
+  // contact target lazily so a missing email or a soft-deleted user
+  // simply skips dispatch — never blocks the approval action.
+  const target = await prisma.companyProfile.findUnique({
+    where: { id: company.id },
+    select: {
+      companyName: true,
+      contactEmail: true,
+      user: { select: { email: true, deletedAt: true } },
+    },
+  });
+  const recipient =
+    target?.contactEmail ??
+    (target && target.user.deletedAt === null ? target.user.email : null);
+  if (recipient) {
+    await dispatchEmail(
+      companyApprovalChanged({
+        to: recipient,
+        companyName: target?.companyName ?? "your company",
+        newStatus,
+      }),
+    );
+  }
 
   return { ok: true, from, to: newStatus, noChange: false };
 }

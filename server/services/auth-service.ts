@@ -3,6 +3,11 @@ import "server-only";
 import { hashPassword } from "@/lib/auth/password";
 import { prisma } from "@/lib/db/client";
 import type { UserRole } from "@/lib/db/generated/enums";
+import {
+  companyWelcome,
+  dispatchEmail,
+  studentWelcome,
+} from "@/server/services/email-service";
 
 export type CreateUserInput = {
   email: string;
@@ -53,6 +58,14 @@ export async function createUserWithCredentials(
       metadataJson: { email: input.email },
     },
   });
+
+  // Welcome email — fire after the DB writes commit. dispatchEmail
+  // never throws; provider failures are absorbed and logged.
+  await dispatchEmail(
+    input.role === "STUDENT"
+      ? studentWelcome({ to: input.email, userId: user.id })
+      : companyWelcome({ to: input.email, userId: user.id }),
+  );
 
   return { ok: true, userId: user.id };
 }
