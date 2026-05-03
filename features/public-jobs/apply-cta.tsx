@@ -65,20 +65,11 @@ export async function ApplyCta({ jobPostingId }: { jobPostingId: string }) {
     );
   }
 
-  // A resume is required to apply (Patch 2). Even if the profile is
-  // marked complete, a missing resume blocks submission server-side
-  // — guide the student to upload one before they hit submit.
-  if (!profile.resumeStorageKey) {
-    return (
-      <div className="rounded-md border border-border bg-muted/40 p-4 text-sm">
-        <p>Upload a resume on your profile before applying.</p>
-        <Button asChild size="sm" className="mt-3">
-          <Link href="/student/profile">Upload resume</Link>
-        </Button>
-      </div>
-    );
-  }
-
+  // Already-applied check runs BEFORE the resume gate. The student
+  // can't re-submit anyway (one application per posting per student),
+  // so nagging them to upload a resume is misleading — the historical
+  // application carries a snapshot of whatever resume was on file at
+  // submit time.
   const existing = await prisma.application.findUnique({
     where: {
       jobPostingId_studentProfileId: {
@@ -97,6 +88,20 @@ export async function ApplyCta({ jobPostingId }: { jobPostingId: string }) {
         </p>
         <Button asChild size="sm" className="mt-3" variant="outline">
           <Link href="/student/applications">View your applications</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  // A resume is required to apply (Patch 2). Even if the profile is
+  // marked complete, a missing resume blocks submission server-side
+  // — guide the student to upload one before they hit submit.
+  if (!profile.resumeStorageKey) {
+    return (
+      <div className="rounded-md border border-border bg-muted/40 p-4 text-sm">
+        <p>Upload a resume on your profile before applying.</p>
+        <Button asChild size="sm" className="mt-3">
+          <Link href="/student/profile">Upload resume</Link>
         </Button>
       </div>
     );
