@@ -8,6 +8,22 @@ const eslintConfig = defineConfig([
   ...nextTs,
   prettier,
   {
+    // Treat `_`-prefixed identifiers as intentionally unused. The
+    // S3StorageAdapter skeleton and test-only fake adapters declare
+    // method/parameter signatures they don't yet use; the underscore
+    // prefix is the convention.
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
+  {
     // Tests pragmatically use `as any` to construct partial fixtures for
     // framework callbacks (Auth.js, etc.) without rebuilding the whole
     // runtime context. App code keeps the strict rule.

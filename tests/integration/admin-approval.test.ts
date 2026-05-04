@@ -4,7 +4,6 @@ import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/client";
 import { createUserDirect, createUserWithCredentials } from "@/server/services/auth-service";
 import {
-  listCompaniesForAdmin,
   setCompanyApprovalStatus,
 } from "@/server/services/admin-service";
 import { upsertCompanyProfile } from "@/server/services/company-service";
@@ -277,24 +276,6 @@ describe.skipIf(skip)("invariant: company-service.upsertCompanyProfile never wri
     });
     expect(fresh.companyName).toBe("Renamed Co");
     expect(fresh.approvalStatus).toBe("SUSPENDED"); // unchanged
-  });
-});
-
-describe.skipIf(skip)("listCompaniesForAdmin", () => {
-  it("returns all non-soft-deleted companies", async () => {
-    const co = await makeCompany("list-include");
-    const list = await listCompaniesForAdmin();
-    expect(list.some((row) => row.id === co.companyProfileId)).toBe(true);
-  });
-
-  it("excludes soft-deleted companies", async () => {
-    const co = await makeCompany("list-exclude");
-    await prisma.companyProfile.update({
-      where: { id: co.companyProfileId },
-      data: { deletedAt: new Date() },
-    });
-    const list = await listCompaniesForAdmin();
-    expect(list.some((row) => row.id === co.companyProfileId)).toBe(false);
   });
 });
 

@@ -35,7 +35,6 @@ export class ConsoleEmailAdapter implements EmailAdapter {
     lines.push("body:");
     lines.push(message.body);
     lines.push("--- /email ---");
-    // eslint-disable-next-line no-console
     console.log(lines.join("\n"));
     return { ok: true, provider: this.providerName };
   }

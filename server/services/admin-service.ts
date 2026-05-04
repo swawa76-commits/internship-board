@@ -272,35 +272,6 @@ export async function softDeleteJobPostingAsAdmin(
   return { ok: true };
 }
 
-/**
- * Legacy unfiltered listing used by the original Task 8 minimal
- * companies page. The new paged path supersedes it; kept exported so
- * existing callers and tests don't break in this commit.
- *
- * @deprecated Use `listCompaniesPageForAdmin` instead.
- */
-export async function listCompaniesForAdmin(): Promise<
-  Array<{
-    id: string;
-    companyName: string;
-    slug: string;
-    approvalStatus: CompanyApprovalStatus;
-    contactEmail: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }>
-> {
-  return prisma.companyProfile.findMany({
-    where: { deletedAt: null },
-    orderBy: [{ approvalStatus: "asc" }, { createdAt: "desc" }],
-    select: {
-      id: true,
-      companyName: true,
-      slug: true,
-      approvalStatus: true,
-      contactEmail: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
-}
+// Note: the legacy unfiltered `listCompaniesForAdmin` (from Task 8)
+// was removed in Task 22. Callers now use `listCompaniesPageForAdmin`
+// (admin-only, paginated, filterable) above.

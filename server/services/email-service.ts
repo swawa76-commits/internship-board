@@ -55,7 +55,6 @@ export async function dispatchEmail(
   try {
     const result = await activeAdapter.send(message);
     if (!result.ok) {
-      // eslint-disable-next-line no-console
       console.error(
         `[email] provider=${result.provider} failed to send to=${message.to} subject="${message.subject}": ${result.error}`,
       );
@@ -63,7 +62,6 @@ export async function dispatchEmail(
     return result;
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
-    // eslint-disable-next-line no-console
     console.error(
       `[email] adapter threw while sending to=${message.to} subject="${message.subject}": ${error}`,
     );

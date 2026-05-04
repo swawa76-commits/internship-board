@@ -309,7 +309,7 @@ describe.skipIf(skip)("admin pages · job visibility (no public-rules leak)", ()
     // surface its postings (this is the rule public visibility blocks
     // but admin must NOT).
     const susCo = await makeCompany("vis-sus-co", { adminId: admin });
-    const susJob = await makeJob(susCo.companyUserId, "vis-sus-job");
+    await makeJob(susCo.companyUserId, "vis-sus-job");
     await setCompanyApprovalStatus(admin, susCo.companyProfileId, "SUSPENDED");
 
     const r = await listJobPostingsPageForAdmin(

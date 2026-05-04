@@ -45,7 +45,6 @@ export function selectAdapter(
           `Unknown STORAGE_DRIVER="${driver}". Set STORAGE_DRIVER to one of: local, s3, noop.`,
         );
       }
-      // eslint-disable-next-line no-console
       console.warn(
         `[storage] unknown STORAGE_DRIVER="${driver}", falling back to local-fs adapter`,
       );

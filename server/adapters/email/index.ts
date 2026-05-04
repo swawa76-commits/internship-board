@@ -25,7 +25,6 @@ export function selectEmailAdapter(): EmailAdapter {
     case "console":
       return new ConsoleEmailAdapter();
     default:
-      // eslint-disable-next-line no-console
       console.warn(
         `[email] unknown EMAIL_DRIVER="${driver}", falling back to console adapter`,
       );
