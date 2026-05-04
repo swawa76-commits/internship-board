@@ -131,7 +131,11 @@ async function makeApprovedCoWithJob(
     companyName: `Co ${suffix}`,
   });
   if (!profile.ok) throw new Error("profile setup failed");
-  await setCompanyApprovalStatus(adminUser.id, profile.companyProfileId, "APPROVED");
+  await setCompanyApprovalStatus(
+    adminUser.id,
+    profile.companyProfileId,
+    "APPROVED",
+  );
   const job = await createJobPosting(r.userId, {
     ...POSTING_BASE,
     title: `Job ${suffix}`,
@@ -253,7 +257,10 @@ describe.skipIf(skip)("listSavedJobsForStudent · staleness flag", () => {
     expect(save.ok).toBe(true);
 
     let saved = await listSavedJobsForStudent(studentId);
-    expect(saved.find((s) => s.jobPosting.id === co.jobId)?.jobPosting.isCurrentlyOpen).toBe(true);
+    expect(
+      saved.find((s) => s.jobPosting.id === co.jobId)?.jobPosting
+        .isCurrentlyOpen,
+    ).toBe(true);
 
     await transitionJobPostingStatus(co.companyUserId, co.jobId, "PAUSED");
     saved = await listSavedJobsForStudent(studentId);
@@ -282,12 +289,10 @@ describe.skipIf(skip)("withdrawApplicationByStudent", () => {
     // Cross-feature integration: WITHDRAWN closes the funnel and the
     // unique (jobPostingId, studentProfileId) constraint blocks a
     // second application from the same student to the same posting.
-    const { submitApplication } = await import(
-      "@/server/services/application-service"
-    );
-    const { withdrawApplicationByStudent } = await import(
-      "@/server/services/application-service"
-    );
+    const { submitApplication } =
+      await import("@/server/services/application-service");
+    const { withdrawApplicationByStudent } =
+      await import("@/server/services/application-service");
 
     const studentId = await makeStudent("withdraw-applied");
     const co = await makeApprovedCoWithJob("withdraw-applied-target");
@@ -320,8 +325,11 @@ describe.skipIf(skip)("withdrawApplicationByStudent", () => {
   });
 
   it("rejects withdrawal of a REJECTED application (terminal state)", async () => {
-    const { submitApplication, transitionApplicationStatus, withdrawApplicationByStudent } =
-      await import("@/server/services/application-service");
+    const {
+      submitApplication,
+      transitionApplicationStatus,
+      withdrawApplicationByStudent,
+    } = await import("@/server/services/application-service");
     const studentId = await makeStudent("withdraw-rejected");
     const co = await makeApprovedCoWithJob("withdraw-rejected-target");
     const a = await submitApplication(studentId, {
@@ -342,9 +350,8 @@ describe.skipIf(skip)("withdrawApplicationByStudent", () => {
   });
 
   it("rejects when another student tries to withdraw someone else's application", async () => {
-    const { submitApplication, withdrawApplicationByStudent } = await import(
-      "@/server/services/application-service"
-    );
+    const { submitApplication, withdrawApplicationByStudent } =
+      await import("@/server/services/application-service");
     const owner = await makeStudent("withdraw-cross-owner");
     const attacker = await makeStudent("withdraw-cross-attacker");
     const co = await makeApprovedCoWithJob("withdraw-cross-target");

@@ -22,8 +22,8 @@ export function ProjectsSection({ items }: { items: ProjectItem[] }) {
       <ul className="space-y-3" aria-label="Projects">
         {items.length === 0 ? (
           <li className="text-sm text-muted-foreground">
-            No projects yet. Showcase a class project, side project, or
-            anything you built.
+            No projects yet. Showcase a class project, side project, or anything
+            you built.
           </li>
         ) : (
           items.map((p) => (

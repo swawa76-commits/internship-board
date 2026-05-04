@@ -234,7 +234,5 @@ export async function listActivityEntityTypes(): Promise<string[]> {
     select: { entityType: true },
     orderBy: { entityType: "asc" },
   });
-  return rows
-    .map((r) => r.entityType)
-    .filter((v): v is string => Boolean(v));
+  return rows.map((r) => r.entityType).filter((v): v is string => Boolean(v));
 }

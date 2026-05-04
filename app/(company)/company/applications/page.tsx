@@ -55,8 +55,8 @@ export default async function CompanyApplicationsPage() {
       <header className="mx-auto w-full max-w-5xl">
         <h1 className="text-3xl font-semibold tracking-tight">Applicants</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {rows.length} {rows.length === 1 ? "application" : "applications"}
-          {" "}across all your postings.
+          {rows.length} {rows.length === 1 ? "application" : "applications"}{" "}
+          across all your postings.
         </p>
       </header>
 

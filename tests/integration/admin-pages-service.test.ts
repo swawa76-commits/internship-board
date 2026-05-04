@@ -162,7 +162,11 @@ async function makeCompany(
   });
   if (!profile.ok) throw new Error("profile setup failed");
   if (approve) {
-    await setCompanyApprovalStatus(adminId, profile.companyProfileId, "APPROVED");
+    await setCompanyApprovalStatus(
+      adminId,
+      profile.companyProfileId,
+      "APPROVED",
+    );
   }
   return {
     companyUserId: r.userId,
@@ -189,7 +193,10 @@ async function makeJob(
 describe.skipIf(skip)("admin pages · access control", () => {
   it("rejects non-admin callers across all four list methods", async () => {
     const stud = await makeStudent("acl");
-    const co = await makeCompany("acl-co", { adminId: await makeAdmin("acl-1"), approve: false });
+    const co = await makeCompany("acl-co", {
+      adminId: await makeAdmin("acl-1"),
+      approve: false,
+    });
 
     const noPage = { page: 1, pageSize: 5 };
     const cR = await listCompaniesPageForAdmin(stud, {}, noPage);
@@ -224,132 +231,151 @@ describe.skipIf(skip)("admin pages · access control", () => {
 
 // ---------- Pagination & filtering ----------
 
-describe.skipIf(skip)("admin pages · companies filter + DB-level pagination", () => {
-  it("paginates companies with take/skip and reports total accurately", async () => {
-    const admin = await makeAdmin("page");
-    // Embed RUN_ID into the company name so a substring search reliably
-    // matches just the rows this test created (other tests in this file
-    // share the run-wide DB).
-    const prefix = `${RUN_ID}page`;
-    await makeCompany(`${prefix}-1`, { adminId: admin });
-    await makeCompany(`${prefix}-2`, { adminId: admin });
-    await makeCompany(`${prefix}-3`, { adminId: admin });
+describe.skipIf(skip)(
+  "admin pages · companies filter + DB-level pagination",
+  () => {
+    it("paginates companies with take/skip and reports total accurately", async () => {
+      const admin = await makeAdmin("page");
+      // Embed RUN_ID into the company name so a substring search reliably
+      // matches just the rows this test created (other tests in this file
+      // share the run-wide DB).
+      const prefix = `${RUN_ID}page`;
+      await makeCompany(`${prefix}-1`, { adminId: admin });
+      await makeCompany(`${prefix}-2`, { adminId: admin });
+      await makeCompany(`${prefix}-3`, { adminId: admin });
 
-    const tag = `${RUN_ID}-tag`;
-    await makeCompany(`${prefix}-tagged`, { adminId: admin, programTag: tag });
+      const tag = `${RUN_ID}-tag`;
+      await makeCompany(`${prefix}-tagged`, {
+        adminId: admin,
+        programTag: tag,
+      });
 
-    const tagged = await listCompaniesPageForAdmin(
-      admin,
-      { programTag: tag },
-      { page: 1, pageSize: 5 },
-    );
-    if (!tagged.ok) throw new Error("not admin");
-    expect(tagged.data.total).toBe(1);
-    expect(tagged.data.rows.map((r) => r.companyName)).toEqual([
-      `Co ${prefix}-tagged`,
-    ]);
+      const tagged = await listCompaniesPageForAdmin(
+        admin,
+        { programTag: tag },
+        { page: 1, pageSize: 5 },
+      );
+      if (!tagged.ok) throw new Error("not admin");
+      expect(tagged.data.total).toBe(1);
+      expect(tagged.data.rows.map((r) => r.companyName)).toEqual([
+        `Co ${prefix}-tagged`,
+      ]);
 
-    const page1 = await listCompaniesPageForAdmin(
-      admin,
-      { q: prefix },
-      { page: 1, pageSize: 2 },
-    );
-    if (!page1.ok) throw new Error("not admin");
-    expect(page1.data.rows.length).toBe(2);
-    expect(page1.data.total).toBeGreaterThanOrEqual(3);
+      const page1 = await listCompaniesPageForAdmin(
+        admin,
+        { q: prefix },
+        { page: 1, pageSize: 2 },
+      );
+      if (!page1.ok) throw new Error("not admin");
+      expect(page1.data.rows.length).toBe(2);
+      expect(page1.data.total).toBeGreaterThanOrEqual(3);
 
-    const page2 = await listCompaniesPageForAdmin(
-      admin,
-      { q: prefix },
-      { page: 2, pageSize: 2 },
-    );
-    if (!page2.ok) throw new Error("not admin");
-    const idsPage1 = new Set(page1.data.rows.map((r) => r.id));
-    for (const row of page2.data.rows) {
-      expect(idsPage1.has(row.id)).toBe(false);
-    }
-  });
+      const page2 = await listCompaniesPageForAdmin(
+        admin,
+        { q: prefix },
+        { page: 2, pageSize: 2 },
+      );
+      if (!page2.ok) throw new Error("not admin");
+      const idsPage1 = new Set(page1.data.rows.map((r) => r.id));
+      for (const row of page2.data.rows) {
+        expect(idsPage1.has(row.id)).toBe(false);
+      }
+    });
 
-  it("filters companies by approvalStatus", async () => {
-    const admin = await makeAdmin("co-status-filter");
-    const suffix = `${RUN_ID}susp`;
-    const c = await makeCompany(suffix, { adminId: admin });
-    await setCompanyApprovalStatus(admin, c.companyProfileId, "SUSPENDED");
+    it("filters companies by approvalStatus", async () => {
+      const admin = await makeAdmin("co-status-filter");
+      const suffix = `${RUN_ID}susp`;
+      const c = await makeCompany(suffix, { adminId: admin });
+      await setCompanyApprovalStatus(admin, c.companyProfileId, "SUSPENDED");
 
-    const r = await listCompaniesPageForAdmin(
-      admin,
-      { approvalStatus: "SUSPENDED", q: suffix },
-      { page: 1, pageSize: 50 },
-    );
-    if (!r.ok) throw new Error("not admin");
-    expect(r.data.rows.some((row) => row.id === c.companyProfileId)).toBe(true);
-    expect(r.data.rows.every((row) => row.approvalStatus === "SUSPENDED")).toBe(
-      true,
-    );
-  });
-});
+      const r = await listCompaniesPageForAdmin(
+        admin,
+        { approvalStatus: "SUSPENDED", q: suffix },
+        { page: 1, pageSize: 50 },
+      );
+      if (!r.ok) throw new Error("not admin");
+      expect(r.data.rows.some((row) => row.id === c.companyProfileId)).toBe(
+        true,
+      );
+      expect(
+        r.data.rows.every((row) => row.approvalStatus === "SUSPENDED"),
+      ).toBe(true);
+    });
+  },
+);
 
 // ---------- Admin visibility includes non-public job postings ----------
 
-describe.skipIf(skip)("admin pages · job visibility (no public-rules leak)", () => {
-  it("admin sees DRAFT, PAUSED, CLOSED, ARCHIVED, suspended-company postings", async () => {
-    const admin = await makeAdmin("vis");
-    const co = await makeCompany("vis-co", { adminId: admin });
-    const draft = await createJobPosting(co.companyUserId, {
-      ...POSTING_BASE,
-      title: "vis-draft",
-      status: "DRAFT" as unknown as "PUBLISHED",
+describe.skipIf(skip)(
+  "admin pages · job visibility (no public-rules leak)",
+  () => {
+    it("admin sees DRAFT, PAUSED, CLOSED, ARCHIVED, suspended-company postings", async () => {
+      const admin = await makeAdmin("vis");
+      const co = await makeCompany("vis-co", { adminId: admin });
+      const draft = await createJobPosting(co.companyUserId, {
+        ...POSTING_BASE,
+        title: "vis-draft",
+        status: "DRAFT" as unknown as "PUBLISHED",
+      });
+      if (!draft.ok) throw new Error("setup");
+
+      const published = await makeJob(co.companyUserId, "vis-published");
+      await transitionJobPostingStatus(co.companyUserId, published, "PAUSED");
+
+      // Suspend the owning company too — the admin job list must still
+      // surface its postings (this is the rule public visibility blocks
+      // but admin must NOT).
+      const susCo = await makeCompany("vis-sus-co", { adminId: admin });
+      await makeJob(susCo.companyUserId, "vis-sus-job");
+      await setCompanyApprovalStatus(
+        admin,
+        susCo.companyProfileId,
+        "SUSPENDED",
+      );
+
+      const r = await listJobPostingsPageForAdmin(
+        admin,
+        { q: "vis-" },
+        { page: 1, pageSize: 50 },
+      );
+      if (!r.ok) throw new Error("not admin");
+      const titles = r.data.rows.map((row) => row.title);
+      expect(titles).toContain("vis-draft");
+      expect(titles).toContain("Job vis-published");
+      expect(titles).toContain("Job vis-sus-job");
+
+      // Status filter still narrows correctly.
+      const draftsOnly = await listJobPostingsPageForAdmin(
+        admin,
+        { status: "DRAFT", q: "vis-" },
+        { page: 1, pageSize: 50 },
+      );
+      if (!draftsOnly.ok) throw new Error("not admin");
+      expect(draftsOnly.data.rows.every((row) => row.status === "DRAFT")).toBe(
+        true,
+      );
     });
-    if (!draft.ok) throw new Error("setup");
 
-    const published = await makeJob(co.companyUserId, "vis-published");
-    await transitionJobPostingStatus(co.companyUserId, published, "PAUSED");
+    it("companyProfileId filter restricts the job list to that company", async () => {
+      const admin = await makeAdmin("vis-co-filter");
+      const coA = await makeCompany("vis-co-A", { adminId: admin });
+      const coB = await makeCompany("vis-co-B", { adminId: admin });
+      const jA = await makeJob(coA.companyUserId, "A1");
+      await makeJob(coB.companyUserId, "B1");
 
-    // Suspend the owning company too — the admin job list must still
-    // surface its postings (this is the rule public visibility blocks
-    // but admin must NOT).
-    const susCo = await makeCompany("vis-sus-co", { adminId: admin });
-    await makeJob(susCo.companyUserId, "vis-sus-job");
-    await setCompanyApprovalStatus(admin, susCo.companyProfileId, "SUSPENDED");
-
-    const r = await listJobPostingsPageForAdmin(
-      admin,
-      { q: "vis-" },
-      { page: 1, pageSize: 50 },
-    );
-    if (!r.ok) throw new Error("not admin");
-    const titles = r.data.rows.map((row) => row.title);
-    expect(titles).toContain("vis-draft");
-    expect(titles).toContain("Job vis-published");
-    expect(titles).toContain("Job vis-sus-job");
-
-    // Status filter still narrows correctly.
-    const draftsOnly = await listJobPostingsPageForAdmin(
-      admin,
-      { status: "DRAFT", q: "vis-" },
-      { page: 1, pageSize: 50 },
-    );
-    if (!draftsOnly.ok) throw new Error("not admin");
-    expect(draftsOnly.data.rows.every((row) => row.status === "DRAFT")).toBe(true);
-  });
-
-  it("companyProfileId filter restricts the job list to that company", async () => {
-    const admin = await makeAdmin("vis-co-filter");
-    const coA = await makeCompany("vis-co-A", { adminId: admin });
-    const coB = await makeCompany("vis-co-B", { adminId: admin });
-    const jA = await makeJob(coA.companyUserId, "A1");
-    await makeJob(coB.companyUserId, "B1");
-
-    const r = await listJobPostingsPageForAdmin(
-      admin,
-      { companyProfileId: coA.companyProfileId },
-      { page: 1, pageSize: 50 },
-    );
-    if (!r.ok) throw new Error("not admin");
-    expect(r.data.rows.every((row) => row.company.id === coA.companyProfileId)).toBe(true);
-    expect(r.data.rows.some((row) => row.id === jA)).toBe(true);
-  });
-});
+      const r = await listJobPostingsPageForAdmin(
+        admin,
+        { companyProfileId: coA.companyProfileId },
+        { page: 1, pageSize: 50 },
+      );
+      if (!r.ok) throw new Error("not admin");
+      expect(
+        r.data.rows.every((row) => row.company.id === coA.companyProfileId),
+      ).toBe(true);
+      expect(r.data.rows.some((row) => row.id === jA)).toBe(true);
+    });
+  },
+);
 
 // ---------- Students filter ----------
 
@@ -377,7 +403,9 @@ describe.skipIf(skip)("admin pages · students filter", () => {
       { page: 1, pageSize: 50 },
     );
     if (!incompleteR.ok) throw new Error("not admin");
-    expect(incompleteR.data.rows.some((r) => r.userId === sIncomplete)).toBe(true);
+    expect(incompleteR.data.rows.some((r) => r.userId === sIncomplete)).toBe(
+      true,
+    );
     expect(incompleteR.data.rows.every((r) => !r.isProfileComplete)).toBe(true);
   });
 });
@@ -419,8 +447,12 @@ describe.skipIf(skip)("admin pages · applications filter", () => {
       { page: 1, pageSize: 50 },
     );
     if (!allApplied.ok) throw new Error("not admin");
-    expect(allApplied.data.rows.some((r) => r.id === a2.applicationId)).toBe(true);
-    expect(allApplied.data.rows.every((r) => r.status === "APPLIED")).toBe(true);
+    expect(allApplied.data.rows.some((r) => r.id === a2.applicationId)).toBe(
+      true,
+    );
+    expect(allApplied.data.rows.every((r) => r.status === "APPLIED")).toBe(
+      true,
+    );
   });
 });
 
@@ -429,18 +461,35 @@ describe.skipIf(skip)("admin pages · applications filter", () => {
 describe.skipIf(skip)("admin pages · approval & suspension", () => {
   it("approve → suspend → re-approve cycles through setCompanyApprovalStatus", async () => {
     const admin = await makeAdmin("cycle");
-    const co = await makeCompany("cycle-co", { adminId: admin, approve: false });
+    const co = await makeCompany("cycle-co", {
+      adminId: admin,
+      approve: false,
+    });
     expect(
-      (await prisma.companyProfile.findUniqueOrThrow({
-        where: { id: co.companyProfileId },
-      })).approvalStatus,
+      (
+        await prisma.companyProfile.findUniqueOrThrow({
+          where: { id: co.companyProfileId },
+        })
+      ).approvalStatus,
     ).toBe("PENDING");
 
-    const a = await setCompanyApprovalStatus(admin, co.companyProfileId, "APPROVED");
+    const a = await setCompanyApprovalStatus(
+      admin,
+      co.companyProfileId,
+      "APPROVED",
+    );
     expect(a.ok).toBe(true);
-    const s = await setCompanyApprovalStatus(admin, co.companyProfileId, "SUSPENDED");
+    const s = await setCompanyApprovalStatus(
+      admin,
+      co.companyProfileId,
+      "SUSPENDED",
+    );
     expect(s.ok).toBe(true);
-    const r = await setCompanyApprovalStatus(admin, co.companyProfileId, "APPROVED");
+    const r = await setCompanyApprovalStatus(
+      admin,
+      co.companyProfileId,
+      "APPROVED",
+    );
     expect(r.ok).toBe(true);
 
     const fresh = await prisma.companyProfile.findUniqueOrThrow({
@@ -470,7 +519,9 @@ describe.skipIf(skip)("admin pages · soft-delete behavior", () => {
       { page: 1, pageSize: 50 },
     );
     if (!hidden.ok) throw new Error("not admin");
-    expect(hidden.data.rows.some((r) => r.id === co.companyProfileId)).toBe(false);
+    expect(hidden.data.rows.some((r) => r.id === co.companyProfileId)).toBe(
+      false,
+    );
 
     const visible = await listCompaniesPageForAdmin(
       admin,
@@ -531,7 +582,10 @@ describe.skipIf(skip)("admin pages · soft-delete behavior", () => {
 
   it("returns not_found when soft-deleting a missing or already-deleted row", async () => {
     const admin = await makeAdmin("sd-missing");
-    const r = await softDeleteCompanyAsAdmin(admin, "cmiss00000000000000000000000");
+    const r = await softDeleteCompanyAsAdmin(
+      admin,
+      "cmiss00000000000000000000000",
+    );
     // Result type: cuid validation lives in the action layer; the
     // service just returns not_found because the row doesn't exist.
     expect(r.ok).toBe(false);

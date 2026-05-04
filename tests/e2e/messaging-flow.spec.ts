@@ -75,9 +75,7 @@ test("student applies, company starts thread, student replies", async ({
     .first();
   await expect(applicantRow).toBeVisible();
   await applicantRow.getByRole("link", { name: /^message$/i }).click();
-  await expect(page).toHaveURL(
-    /\/company\/applications\/[^/]+\/message$/,
-  );
+  await expect(page).toHaveURL(/\/company\/applications\/[^/]+\/message$/);
 
   // Send the first message — server action redirects to the new thread.
   await page.getByLabel(/first message/i).fill("Hi! Are you still interested?");
@@ -94,9 +92,7 @@ test("student applies, company starts thread, student replies", async ({
   // ----- Phase 3: student signs back in and replies.
   await signInAs(page, studentEmail, E2E_PASSWORD);
   await page.goto("/student/messages");
-  await expect(
-    page.getByRole("heading", { name: /^Messages$/ }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Messages$/ })).toBeVisible();
 
   // Inbox shows one thread with the company's message preview.
   const threadEntry = page

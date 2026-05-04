@@ -28,28 +28,105 @@ In **Vercel → Project → Settings → Environment Variables**, set the follow
 
 ### Required
 
-| Variable        | Value                                                                                          |
-| --------------- | ---------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`  | Production Postgres connection string (with `sslmode=require`)                                 |
-| `AUTH_SECRET`   | A fresh secret, **different** from any dev value. Generate: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
-| `AUTH_URL`      | The canonical production URL, e.g. `https://your-app.vercel.app`. Auth.js v5 warns if this is unset in production. |
+| Variable       | Value                                                                                                                                     |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL` | Production Postgres connection string (with `sslmode=require`)                                                                            |
+| `AUTH_SECRET`  | A fresh secret, **different** from any dev value. Generate: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
+| `AUTH_URL`     | The canonical production URL, e.g. `https://your-app.vercel.app`. Auth.js v5 warns if this is unset in production.                        |
 
 ### Storage adapter (recommended for production)
 
-| Variable                       | Value                                                |
-| ------------------------------ | ---------------------------------------------------- |
-| `STORAGE_DRIVER`               | `s3` (see warnings below)                            |
-| `S3_BUCKET`                    | Bucket name, e.g. `internshipboard-uploads`          |
-| `S3_REGION`                    | e.g. `us-east-1`                                     |
-| `S3_ACCESS_KEY_ID`             | IAM access key with `s3:Put/Get/Delete/ListObject` on that bucket |
-| `S3_SECRET_ACCESS_KEY`         | IAM secret                                           |
-| `S3_SIGNED_URL_TTL_SECONDS`    | Optional, defaults to `300` (5 min)                  |
+The S3 adapter uses `@aws-sdk/client-s3` and works against any S3-compatible
+backend — AWS S3, Cloudflare R2, MinIO, etc. Required env vars are the same
+across providers; the optional `S3_ENDPOINT` overrides the SDK's default
+regional endpoint.
+
+| Variable                    | Value                                                                                                                                                     |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `STORAGE_DRIVER`            | `s3`                                                                                                                                                      |
+| `S3_BUCKET`                 | Bucket name, e.g. `internshipboard-uploads`                                                                                                               |
+| `S3_REGION`                 | AWS region, e.g. `us-east-1`. For R2 use `auto`.                                                                                                          |
+| `S3_ACCESS_KEY_ID`          | Access key with `s3:Put/Get/Delete/ListObject` on that bucket                                                                                             |
+| `S3_SECRET_ACCESS_KEY`      | Secret access key                                                                                                                                         |
+| `S3_SIGNED_URL_TTL_SECONDS` | Optional, defaults to `300` (5 min). Read URLs returned by the redirect branch live for this many seconds.                                                |
+| `S3_ENDPOINT`               | Optional. **Required for Cloudflare R2.** Omit for AWS S3.                                                                                                |
+| `S3_FORCE_PATH_STYLE`       | Optional, defaults to `false`. Set to `true` only if your provider needs path-style URLs (older MinIO, some self-hosted gateways). R2 does not need this. |
+
+#### Cloudflare R2 setup
+
+1. **Create the bucket.** In the Cloudflare dashboard → **R2** → **Create bucket**. Name it whatever the deploy uses (e.g. `internshipboard-uploads`). Keep public access **off** — the app generates short-lived presigned URLs at read time.
+2. **Find your account-scoped endpoint.** R2 → **Manage R2 API Tokens** shows a "S3 API" endpoint of the form `https://<accountid>.r2.cloudflarestorage.com`. This is `S3_ENDPOINT`.
+3. **Create an API token** with **Object Read & Write** scoped to that bucket. Capture the access key ID and secret access key — these are `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY`.
+4. **Set env vars** on Vercel:
+   ```
+   STORAGE_DRIVER=s3
+   S3_BUCKET=internshipboard-uploads
+   S3_REGION=auto
+   S3_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com
+   S3_ACCESS_KEY_ID=...
+   S3_SECRET_ACCESS_KEY=...
+   ```
+5. **Optional smoke check.** With the same env loaded locally, run the gated R2 round-trip test:
+   ```
+   R2_TEST_BUCKET=$S3_BUCKET R2_TEST_REGION=$S3_REGION \
+   R2_TEST_ENDPOINT=$S3_ENDPOINT \
+   R2_TEST_ACCESS_KEY_ID=$S3_ACCESS_KEY_ID \
+   R2_TEST_SECRET_ACCESS_KEY=$S3_SECRET_ACCESS_KEY \
+   npm run test:integration -- r2-storage
+   ```
+   The test is skipped when these vars are absent, so day-to-day CI runs without R2 access never touch the network.
 
 ### Email adapter
 
-| Variable        | Value                                                                       |
-| --------------- | --------------------------------------------------------------------------- |
-| `EMAIL_DRIVER`  | `console` is the only adapter that ships in V1. Wire a real provider behind the `EmailAdapter` interface before flipping this to `smtp`/`ses`/etc. |
+| Variable         | Value                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------ |
+| `EMAIL_DRIVER`   | `resend` for production. `console` (the dev default) just logs to stdout and is unsafe for production. |
+| `RESEND_API_KEY` | Required when `EMAIL_DRIVER=resend`. Generate at <https://resend.com/api-keys>.                        |
+| `EMAIL_FROM`     | Required when `EMAIL_DRIVER=resend`. Bare address or `"Display Name <addr@domain>"`.                   |
+| `EMAIL_REPLY_TO` | Optional. Single Reply-To address applied to every outbound message.                                   |
+
+#### Resend setup
+
+1. **Create a Resend account** at <https://resend.com> and add the domain you'll send from (e.g. `mail.yourdomain.com` as a subdomain so it's isolated from your apex MX).
+2. **Verify the domain.** Resend prints SPF, DKIM, and (optionally) DMARC records. Add them at your DNS provider; verification typically completes within a few minutes. Production sends from an unverified domain will be rejected.
+3. **Generate an API key** with **Sending access** scoped to that domain (`Restrict to the verified domain` in the Resend UI). This is `RESEND_API_KEY`.
+4. **Pick a sender address.** Anything `@yourdomain.com` works once the domain is verified; using a no-reply alias such as `alerts@yourdomain.com` is conventional.
+5. **Set env vars** on Vercel:
+   ```
+   EMAIL_DRIVER=resend
+   RESEND_API_KEY=re_...
+   EMAIL_FROM=InternshipBoard <alerts@yourdomain.com>
+   # optional
+   EMAIL_REPLY_TO=support@yourdomain.com
+   ```
+6. **Boot-time validation.** Setting `EMAIL_DRIVER=resend` without both `RESEND_API_KEY` and `EMAIL_FROM` will crash the app on import — by design, so a misconfigured deploy fails fast rather than silently dropping every notification. Roll back to `EMAIL_DRIVER=console` if you need to defer the migration.
+7. **Failure semantics.** Provider-side failures (rate limits, validation errors) never roll back the primary mutation. `dispatchEmail` wraps every send in a try/catch and absorbs both `{ ok: false }` results and unexpected SDK throws — signups, applications, status changes, and messages all commit even if Resend is down.
+
+#### Smoke test the live integration
+
+Before flipping `EMAIL_DRIVER=resend` in Vercel production, send exactly one real test email from a workstation using the same env vars:
+
+```bash
+# Either export the vars in your shell:
+export RESEND_API_KEY=re_...
+export EMAIL_FROM='InternshipBoard <alerts@yourdomain.com>'
+export SMOKE_EMAIL_TO=you@example.com
+npm run smoke:email
+
+# Or load them from a file with your preferred loader, e.g.:
+#   set -a; source .env.production; set +a; npm run smoke:email
+#   tsx --env-file=.env.production scripts/smoke-email.ts
+#   dotenv -e .env.production -- npm run smoke:email
+```
+
+The script:
+
+- Refuses to run unless `SMOKE_EMAIL_TO` is set.
+- Sends exactly one plain-text message via the production `ResendEmailAdapter`.
+- Bypasses `dispatchEmail`'s absorption wrapper on purpose so a `{ ok: false }` from Resend or an SDK throw exits non-zero — useful for chaining into a deploy gate (`npm run smoke:email && deploy`).
+- Never prints `RESEND_API_KEY`, the raw `EMAIL_FROM` value, the message body, or the full recipient address (the recipient is partially masked in stdout).
+
+If the recipient receives the test message and the script exits `0`, the integration is wired correctly. Domain-verification mistakes are the most common Resend onboarding failure — they only surface against the live API.
 
 `NODE_ENV` is set to `production` automatically by Vercel during builds and at runtime. Do not override it manually.
 
@@ -99,10 +176,48 @@ The dev seed in [`prisma/seed.ts`](prisma/seed.ts) is **for local development an
 
 For production:
 
-- Create the first ADMIN user manually via a one-shot script or a `psql` insert (the password column is `passwordHash`, bcrypt-hashed via [`hashPassword`](lib/auth/password.ts)).
+- Create the first ADMIN user with `npm run admin:create` (see below).
 - Companies and students self-register through the regular signup flow.
 
 If you genuinely need demo data in a non-prod environment (staging), point `DATABASE_URL` at the staging DB and run the seed there.
+
+### Bootstrap the first admin user
+
+The script in [`scripts/admin-create.ts`](scripts/admin-create.ts) creates exactly one `ADMIN` row using the same bcrypt helper the rest of the app uses. It is the only sanctioned production path — never use `npm run db:seed`.
+
+**Required env:**
+
+| Variable               | Value                                                                                                                        |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`         | The production Postgres URL (must already be migrated).                                                                      |
+| `ADMIN_EMAIL`          | The admin's email address.                                                                                                   |
+| `ADMIN_PASSWORD`       | At least **16 characters**, at most **72 UTF-8 bytes** (bcrypt's silent truncation point). Use a password manager.           |
+| `CREATE_ADMIN_CONFIRM` | Must equal `ADMIN_EMAIL` exactly (after trim/lowercase). Forces you to retype the address and prevents accidental execution. |
+
+**Run it:**
+
+```bash
+export DATABASE_URL=postgresql://...
+export ADMIN_EMAIL=admin@yourdomain.com
+export ADMIN_PASSWORD='use-a-real-password-manager-1234'
+export CREATE_ADMIN_CONFIRM=admin@yourdomain.com
+npm run admin:create
+```
+
+Or load the env from a file with your preferred wrapper (`set -a; source .env.production; set +a`, `tsx --env-file=...`, `dotenv-cli`, etc.).
+
+**What the script does:**
+
+- Validates `CREATE_ADMIN_CONFIRM === ADMIN_EMAIL`. If they don't match, it exits `1` without touching the DB.
+- Validates the email format and password length/byte-cap.
+- If an active `ADMIN` with that email already exists, prints an idempotent-noop log line and exits `0`. **Does NOT rotate the password** — if you forgot the password, that's a separate password-reset flow, not a re-bootstrap.
+- If an active `STUDENT` or `COMPANY` with that email exists, refuses loudly and exits `1`. The script will not change another user's role.
+- Otherwise creates the User row with `role=ADMIN` and a bcrypt-hashed password.
+- Catches the `User_email_active_key` unique-constraint race (P2002) and re-queries to disambiguate.
+- **Never logs** the password, the bcrypt hash, or any secret. The email is partially masked in stdout (`a***@yourdomain.com`).
+- **Does NOT write an `ActivityEvent`.** The `ActivityEventType` enum has no system/bootstrap entry; adding one would require a migration, which is intentionally out of scope. The script's stdout line is the audit trail — capture it from your terminal session.
+
+**Soft-delete edge case.** If a previous admin with the same email was soft-deleted (`deletedAt` is set), the script will create a new active admin row alongside it. The soft-deleted row stays soft-deleted. This matches the rest of the app's "soft-deleted means gone" convention.
 
 ---
 
@@ -179,6 +294,6 @@ To roll back the **database**:
 
 - Prisma does not generate down-migrations.
 - Best practice: restore from a managed snapshot (Neon point-in-time, Supabase backup, etc.) taken before the bad migration.
-- If the bad migration was additive (new column, new index), it's usually safer to deploy a *new* migration that drops the offending object than to restore the whole DB.
+- If the bad migration was additive (new column, new index), it's usually safer to deploy a _new_ migration that drops the offending object than to restore the whole DB.
 
 Coordinate the app and DB rollbacks: an older app version against a newer schema is usually fine; a newer app against an older schema breaks immediately.

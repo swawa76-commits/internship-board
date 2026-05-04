@@ -6,7 +6,10 @@ import {
   TextField,
 } from "@/features/admin/admin-filter-bar";
 import { AdminPagination } from "@/features/admin/admin-pagination";
-import { AdminTable, type AdminTableColumn } from "@/features/admin/admin-table";
+import {
+  AdminTable,
+  type AdminTableColumn,
+} from "@/features/admin/admin-table";
 import type { ActivityEventType } from "@/lib/db/generated/enums";
 import { requireRole } from "@/lib/auth/guards";
 import {
@@ -63,7 +66,10 @@ export default async function AdminActivityPage({
   const entityType = readParam(raw.entityType).trim() || undefined;
   const entityId = readParam(raw.entityId).trim() || undefined;
   const programTag = readParam(raw.programTag).trim() || null;
-  const page = Math.max(1, Number.parseInt(readParam(raw.page) || "1", 10) || 1);
+  const page = Math.max(
+    1,
+    Number.parseInt(readParam(raw.page) || "1", 10) || 1,
+  );
 
   const eventType = VALID_EVENT_TYPES.has(eventTypeRaw)
     ? (eventTypeRaw as ActivityEventType)
@@ -170,10 +176,12 @@ export default async function AdminActivityPage({
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Admin
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight">Activity audit</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          Activity audit
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Read-only platform-wide event log. Rows are immutable;
-          there&apos;s no UI to edit or delete events.
+          Read-only platform-wide event log. Rows are immutable; there&apos;s no
+          UI to edit or delete events.
         </p>
         <p className="text-xs text-muted-foreground">
           <Link className="hover:text-foreground hover:underline" href="/admin">

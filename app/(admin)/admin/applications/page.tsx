@@ -6,7 +6,10 @@ import {
   TextField,
 } from "@/features/admin/admin-filter-bar";
 import { AdminPagination } from "@/features/admin/admin-pagination";
-import { AdminTable, type AdminTableColumn } from "@/features/admin/admin-table";
+import {
+  AdminTable,
+  type AdminTableColumn,
+} from "@/features/admin/admin-table";
 import type { ApplicationStatus } from "@/lib/db/generated/enums";
 import { requireRole } from "@/lib/auth/guards";
 import {
@@ -60,7 +63,10 @@ export default async function AdminApplicationsPage({
   const companyProfileId = readParam(raw.companyProfileId).trim() || undefined;
   const studentProfileId = readParam(raw.studentProfileId).trim() || undefined;
   const jobPostingId = readParam(raw.jobPostingId).trim() || undefined;
-  const page = Math.max(1, Number.parseInt(readParam(raw.page) || "1", 10) || 1);
+  const page = Math.max(
+    1,
+    Number.parseInt(readParam(raw.page) || "1", 10) || 1,
+  );
 
   const status = VALID_STATUSES.has(statusRaw)
     ? (statusRaw as ApplicationStatus)
@@ -123,7 +129,9 @@ export default async function AdminApplicationsPage({
           <p className="font-medium">{r.jobPosting.title}</p>
           <p className="text-xs text-muted-foreground">
             {r.company.companyName}
-            {r.jobPosting.programTag ? <> · tag {r.jobPosting.programTag}</> : null}
+            {r.jobPosting.programTag ? (
+              <> · tag {r.jobPosting.programTag}</>
+            ) : null}
             {r.jobPosting.status !== "PUBLISHED" ? (
               <>
                 {" "}
@@ -166,9 +174,9 @@ export default async function AdminApplicationsPage({
         </p>
         <h1 className="text-3xl font-semibold tracking-tight">Applications</h1>
         <p className="text-sm text-muted-foreground">
-          Read-only platform-wide view. Status changes belong to the
-          owning company on /company/applications; admins observe rather
-          than mutate the funnel here.
+          Read-only platform-wide view. Status changes belong to the owning
+          company on /company/applications; admins observe rather than mutate
+          the funnel here.
         </p>
         <p className="text-xs text-muted-foreground">
           <Link className="hover:text-foreground hover:underline" href="/admin">

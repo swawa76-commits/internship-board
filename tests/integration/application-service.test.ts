@@ -146,7 +146,11 @@ async function makeApprovedCoWithJob(
     companyName: `Co ${suffix}`,
   });
   if (!profile.ok) throw new Error("profile setup failed");
-  await setCompanyApprovalStatus(adminUser.id, profile.companyProfileId, "APPROVED");
+  await setCompanyApprovalStatus(
+    adminUser.id,
+    profile.companyProfileId,
+    "APPROVED",
+  );
   const job = await createJobPosting(r.userId, {
     ...POSTING_BASE,
     title: `Job ${suffix}`,
@@ -161,49 +165,52 @@ async function makeApprovedCoWithJob(
   };
 }
 
-describe.skipIf(skip)("submitApplication · pre-flight: profile completeness", () => {
-  it("rejects with profile_incomplete when the student has no profile row", async () => {
-    const r = await createUserWithCredentials({
-      email: `${RUN_ID}-noprofile@test.local`,
-      password: "longenough",
-      role: "STUDENT",
-    });
-    if (!r.ok) throw new Error("setup failed");
-    createdUserIds.push(r.userId);
+describe.skipIf(skip)(
+  "submitApplication · pre-flight: profile completeness",
+  () => {
+    it("rejects with profile_incomplete when the student has no profile row", async () => {
+      const r = await createUserWithCredentials({
+        email: `${RUN_ID}-noprofile@test.local`,
+        password: "longenough",
+        role: "STUDENT",
+      });
+      if (!r.ok) throw new Error("setup failed");
+      createdUserIds.push(r.userId);
 
-    const co = await makeApprovedCoWithJob("noprofile-target");
-    const result = await submitApplication(r.userId, {
-      jobPostingId: co.jobId,
-      coverLetter: null,
+      const co = await makeApprovedCoWithJob("noprofile-target");
+      const result = await submitApplication(r.userId, {
+        jobPostingId: co.jobId,
+        coverLetter: null,
+      });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.reason).toBe("profile_incomplete");
     });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.reason).toBe("profile_incomplete");
-  });
 
-  it("rejects with profile_incomplete when the student profile is partial", async () => {
-    const studentId = await makeIncompleteStudent("partial");
-    const co = await makeApprovedCoWithJob("partial-target");
-    const result = await submitApplication(studentId, {
-      jobPostingId: co.jobId,
-      coverLetter: null,
+    it("rejects with profile_incomplete when the student profile is partial", async () => {
+      const studentId = await makeIncompleteStudent("partial");
+      const co = await makeApprovedCoWithJob("partial-target");
+      const result = await submitApplication(studentId, {
+        jobPostingId: co.jobId,
+        coverLetter: null,
+      });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.reason).toBe("profile_incomplete");
     });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.reason).toBe("profile_incomplete");
-  });
 
-  it("rejects with not_student when the actor is a COMPANY user", async () => {
-    const co = await makeApprovedCoWithJob("co-as-applicant");
-    const result = await submitApplication(co.companyUserId, {
-      jobPostingId: co.jobId,
-      coverLetter: null,
+    it("rejects with not_student when the actor is a COMPANY user", async () => {
+      const co = await makeApprovedCoWithJob("co-as-applicant");
+      const result = await submitApplication(co.companyUserId, {
+        jobPostingId: co.jobId,
+        coverLetter: null,
+      });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.reason).toBe("not_student");
     });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.reason).toBe("not_student");
-  });
-});
+  },
+);
 
 describe.skipIf(skip)("submitApplication · pre-flight: job state", () => {
   it("rejects with job_not_open when the posting is DRAFT", async () => {
@@ -249,7 +256,11 @@ describe.skipIf(skip)("submitApplication · pre-flight: job state", () => {
   it("rejects with job_not_open when the company is SUSPENDED", async () => {
     const studentId = await makeCompleteStudent("susp-applicant");
     const co = await makeApprovedCoWithJob("susp-target");
-    await setCompanyApprovalStatus(co.adminId, co.companyProfileId, "SUSPENDED");
+    await setCompanyApprovalStatus(
+      co.adminId,
+      co.companyProfileId,
+      "SUSPENDED",
+    );
     const result = await submitApplication(studentId, {
       jobPostingId: co.jobId,
       coverLetter: null,
@@ -260,104 +271,130 @@ describe.skipIf(skip)("submitApplication · pre-flight: job state", () => {
   });
 });
 
-describe.skipIf(skip)("submitApplication · pre-flight: resume required (Patch 2)", () => {
-  it("rejects with resume_required when the student has no resume on file", async () => {
-    // Build a complete student manually (skill/experience/project), then
-    // explicitly clear the resume so isProfileComplete recalculates
-    // appropriately. We actually want to test the case where the profile
-    // is otherwise sufficient but the resume is null.
-    const r = await createUserWithCredentials({
-      email: `${RUN_ID}-no-resume-fail@test.local`,
-      password: "longenough",
-      role: "STUDENT",
+describe.skipIf(skip)(
+  "submitApplication · pre-flight: resume required (Patch 2)",
+  () => {
+    it("rejects with resume_required when the student has no resume on file", async () => {
+      // Build a complete student manually (skill/experience/project), then
+      // explicitly clear the resume so isProfileComplete recalculates
+      // appropriately. We actually want to test the case where the profile
+      // is otherwise sufficient but the resume is null.
+      const r = await createUserWithCredentials({
+        email: `${RUN_ID}-no-resume-fail@test.local`,
+        password: "longenough",
+        role: "STUDENT",
+      });
+      if (!r.ok) throw new Error("setup failed");
+      createdUserIds.push(r.userId);
+      await upsertProfileBasics(r.userId, STUDENT_FULL);
+      await addSkill(r.userId, { name: "TypeScript" });
+      await addExperience(r.userId, {
+        title: "Intern",
+        organization: "Acme",
+        startDate: null,
+        endDate: null,
+        description: null,
+      });
+      await addProject(r.userId, {
+        name: "Project",
+        url: null,
+        description: null,
+      });
+      // Force isProfileComplete=true, leave resume null. Verifies the
+      // resume_required check is independent of completeness.
+      await prisma.studentProfile.update({
+        where: { userId: r.userId },
+        data: { isProfileComplete: true, resumeStorageKey: null },
+      });
+
+      const co = await makeApprovedCoWithJob("resume-req");
+      const result = await submitApplication(r.userId, {
+        jobPostingId: co.jobId,
+        coverLetter: null,
+      });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.reason).toBe("resume_required");
     });
-    if (!r.ok) throw new Error("setup failed");
-    createdUserIds.push(r.userId);
-    await upsertProfileBasics(r.userId, STUDENT_FULL);
-    await addSkill(r.userId, { name: "TypeScript" });
-    await addExperience(r.userId, {
-      title: "Intern",
-      organization: "Acme",
-      startDate: null,
-      endDate: null,
-      description: null,
+  },
+);
+
+describe.skipIf(skip)(
+  "studentHasActiveApplication · bypass guard (Patch 1)",
+  () => {
+    it("returns true for APPLIED / IN_REVIEW / INTERVIEWING / OFFER", async () => {
+      // Drive a single application through each active status and confirm
+      // the bypass returns true at every step.
+      const studentId = await makeCompleteStudent("bypass-active");
+      const co = await makeApprovedCoWithJob("bypass-active-target");
+      const a = await submitApplication(studentId, {
+        jobPostingId: co.jobId,
+        coverLetter: null,
+      });
+      if (!a.ok) throw new Error("setup failed");
+
+      // APPLIED
+      expect(await studentHasActiveApplication(studentId, co.jobId)).toBe(true);
+
+      // IN_REVIEW
+      await transitionApplicationStatus(
+        co.companyUserId,
+        a.applicationId,
+        "IN_REVIEW",
+      );
+      expect(await studentHasActiveApplication(studentId, co.jobId)).toBe(true);
+
+      // INTERVIEWING
+      await transitionApplicationStatus(
+        co.companyUserId,
+        a.applicationId,
+        "INTERVIEWING",
+      );
+      expect(await studentHasActiveApplication(studentId, co.jobId)).toBe(true);
+
+      // OFFER
+      await transitionApplicationStatus(
+        co.companyUserId,
+        a.applicationId,
+        "OFFER",
+      );
+      expect(await studentHasActiveApplication(studentId, co.jobId)).toBe(true);
     });
-    await addProject(r.userId, {
-      name: "Project",
-      url: null,
-      description: null,
+
+    it("returns false for REJECTED (no longer active)", async () => {
+      const studentId = await makeCompleteStudent("bypass-rejected");
+      const co = await makeApprovedCoWithJob("bypass-rejected-target");
+      const a = await submitApplication(studentId, {
+        jobPostingId: co.jobId,
+        coverLetter: null,
+      });
+      if (!a.ok) throw new Error("setup failed");
+      await transitionApplicationStatus(
+        co.companyUserId,
+        a.applicationId,
+        "REJECTED",
+      );
+      expect(await studentHasActiveApplication(studentId, co.jobId)).toBe(
+        false,
+      );
     });
-    // Force isProfileComplete=true, leave resume null. Verifies the
-    // resume_required check is independent of completeness.
-    await prisma.studentProfile.update({
-      where: { userId: r.userId },
-      data: { isProfileComplete: true, resumeStorageKey: null },
+
+    it("returns false for a student with no application to this posting", async () => {
+      const studentId = await makeCompleteStudent("bypass-none");
+      const co = await makeApprovedCoWithJob("bypass-none-target");
+      expect(await studentHasActiveApplication(studentId, co.jobId)).toBe(
+        false,
+      );
     });
 
-    const co = await makeApprovedCoWithJob("resume-req");
-    const result = await submitApplication(r.userId, {
-      jobPostingId: co.jobId,
-      coverLetter: null,
+    it("returns false for a non-student user", async () => {
+      const co = await makeApprovedCoWithJob("bypass-non-student");
+      expect(
+        await studentHasActiveApplication(co.companyUserId, co.jobId),
+      ).toBe(false);
     });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.reason).toBe("resume_required");
-  });
-});
-
-describe.skipIf(skip)("studentHasActiveApplication · bypass guard (Patch 1)", () => {
-  it("returns true for APPLIED / IN_REVIEW / INTERVIEWING / OFFER", async () => {
-    // Drive a single application through each active status and confirm
-    // the bypass returns true at every step.
-    const studentId = await makeCompleteStudent("bypass-active");
-    const co = await makeApprovedCoWithJob("bypass-active-target");
-    const a = await submitApplication(studentId, {
-      jobPostingId: co.jobId,
-      coverLetter: null,
-    });
-    if (!a.ok) throw new Error("setup failed");
-
-    // APPLIED
-    expect(await studentHasActiveApplication(studentId, co.jobId)).toBe(true);
-
-    // IN_REVIEW
-    await transitionApplicationStatus(co.companyUserId, a.applicationId, "IN_REVIEW");
-    expect(await studentHasActiveApplication(studentId, co.jobId)).toBe(true);
-
-    // INTERVIEWING
-    await transitionApplicationStatus(co.companyUserId, a.applicationId, "INTERVIEWING");
-    expect(await studentHasActiveApplication(studentId, co.jobId)).toBe(true);
-
-    // OFFER
-    await transitionApplicationStatus(co.companyUserId, a.applicationId, "OFFER");
-    expect(await studentHasActiveApplication(studentId, co.jobId)).toBe(true);
-  });
-
-  it("returns false for REJECTED (no longer active)", async () => {
-    const studentId = await makeCompleteStudent("bypass-rejected");
-    const co = await makeApprovedCoWithJob("bypass-rejected-target");
-    const a = await submitApplication(studentId, {
-      jobPostingId: co.jobId,
-      coverLetter: null,
-    });
-    if (!a.ok) throw new Error("setup failed");
-    await transitionApplicationStatus(co.companyUserId, a.applicationId, "REJECTED");
-    expect(await studentHasActiveApplication(studentId, co.jobId)).toBe(false);
-  });
-
-  it("returns false for a student with no application to this posting", async () => {
-    const studentId = await makeCompleteStudent("bypass-none");
-    const co = await makeApprovedCoWithJob("bypass-none-target");
-    expect(await studentHasActiveApplication(studentId, co.jobId)).toBe(false);
-  });
-
-  it("returns false for a non-student user", async () => {
-    const co = await makeApprovedCoWithJob("bypass-non-student");
-    expect(
-      await studentHasActiveApplication(co.companyUserId, co.jobId),
-    ).toBe(false);
-  });
-});
+  },
+);
 
 describe.skipIf(skip)("submitApplication · pre-flight: duplicate", () => {
   it("rejects a second application from the same student to the same posting", async () => {
@@ -421,9 +458,7 @@ describe.skipIf(skip)("submitApplication · success path + snapshot", () => {
       where: { id: result.applicationId },
       select: { resumeStorageKeySnapshot: true },
     });
-    expect(application.resumeStorageKeySnapshot).toBe(
-      "resumes/test-key.pdf",
-    );
+    expect(application.resumeStorageKeySnapshot).toBe("resumes/test-key.pdf");
   });
 
   it("logs an APPLICATION_SUBMITTED activity event", async () => {

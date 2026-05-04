@@ -6,7 +6,10 @@ import {
   TextField,
 } from "@/features/admin/admin-filter-bar";
 import { AdminPagination } from "@/features/admin/admin-pagination";
-import { AdminTable, type AdminTableColumn } from "@/features/admin/admin-table";
+import {
+  AdminTable,
+  type AdminTableColumn,
+} from "@/features/admin/admin-table";
 import { ConfirmFormButton } from "@/features/admin/confirm-form-button";
 import { softDeleteStudentAdminAction } from "@/features/admin/actions";
 import { requireRole } from "@/lib/auth/guards";
@@ -44,7 +47,10 @@ export default async function AdminStudentsPage({
   const completenessRaw = readParam(raw.completeness).trim();
   const programTag = readParam(raw.programTag).trim() || null;
   const includeDeleted = readParam(raw.includeDeleted) === "1";
-  const page = Math.max(1, Number.parseInt(readParam(raw.page) || "1", 10) || 1);
+  const page = Math.max(
+    1,
+    Number.parseInt(readParam(raw.page) || "1", 10) || 1,
+  );
 
   const completeness =
     completenessRaw === "complete" || completenessRaw === "incomplete"
@@ -154,9 +160,9 @@ export default async function AdminStudentsPage({
         </p>
         <h1 className="text-3xl font-semibold tracking-tight">Students</h1>
         <p className="text-sm text-muted-foreground">
-          Browse all student accounts. Soft-deleting deactivates the user
-          row (and frees their email for re-registration via the partial
-          unique index) while preserving historical applications.
+          Browse all student accounts. Soft-deleting deactivates the user row
+          (and frees their email for re-registration via the partial unique
+          index) while preserving historical applications.
         </p>
         <p className="text-xs text-muted-foreground">
           <Link className="hover:text-foreground hover:underline" href="/admin">

@@ -63,7 +63,15 @@ export async function GET(
   }
 
   if (result.kind === "redirect") {
-    return NextResponse.redirect(result.url);
+    // The redirect target is a presigned URL bounded by
+    // S3_SIGNED_URL_TTL_SECONDS (default 300s). The stream branch below
+    // caches publicly for 24h, but THIS branch must not — a cached 302
+    // would outlive its Location header and start serving 403s. Disable
+    // intermediary + browser caching of the redirect itself; the bucket
+    // response that the URL points to can still be cached on its own.
+    return NextResponse.redirect(result.url, {
+      headers: { "Cache-Control": "no-store" },
+    });
   }
 
   // Belt-and-braces content-type check: even though the key shape

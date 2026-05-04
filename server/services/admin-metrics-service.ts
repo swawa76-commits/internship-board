@@ -513,7 +513,8 @@ async function loadCompanyParticipation(
         0,
       );
       const lastJobUpdate = c.jobPostings.reduce<Date | null>(
-        (latest, j) => (latest === null || j.updatedAt > latest ? j.updatedAt : latest),
+        (latest, j) =>
+          latest === null || j.updatedAt > latest ? j.updatedAt : latest,
         null,
       );
       const lastActivityAt =

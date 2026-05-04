@@ -116,7 +116,8 @@ async function renderDashboard() {
 describe("Student dashboard render — profile CTA", () => {
   it("incomplete student sees CompletenessMeter and 'Complete your profile' CTA", async () => {
     expect(
-      calculateCompleteness(asCompletenessInput(INCOMPLETE_PROFILE_INPUT)).isComplete,
+      calculateCompleteness(asCompletenessInput(INCOMPLETE_PROFILE_INPUT))
+        .isComplete,
     ).toBe(false);
 
     vi.mocked(getStudentProfileByUserId).mockResolvedValue(
@@ -137,7 +138,8 @@ describe("Student dashboard render — profile CTA", () => {
 
   it("complete student does NOT see the 'Complete your profile' CTA", async () => {
     expect(
-      calculateCompleteness(asCompletenessInput(COMPLETE_PROFILE_INPUT)).isComplete,
+      calculateCompleteness(asCompletenessInput(COMPLETE_PROFILE_INPUT))
+        .isComplete,
     ).toBe(true);
 
     vi.mocked(getStudentProfileByUserId).mockResolvedValue(

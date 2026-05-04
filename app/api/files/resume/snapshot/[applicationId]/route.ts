@@ -33,10 +33,7 @@ export async function GET(
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  const check = await canCompanyReadApplicationSnapshot(
-    user.id,
-    applicationId,
-  );
+  const check = await canCompanyReadApplicationSnapshot(user.id, applicationId);
   if (!check.ok) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
@@ -57,7 +54,12 @@ export async function GET(
   }
 
   if (result.kind === "redirect") {
-    return NextResponse.redirect(result.url);
+    // Presigned URL bounded by S3_SIGNED_URL_TTL_SECONDS. Never cache
+    // the 302 — the Location header expires faster than any reasonable
+    // cache window, and snapshot URLs are company-private regardless.
+    return NextResponse.redirect(result.url, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
   }
 
   return new NextResponse(new Uint8Array(result.bytes), {

@@ -31,9 +31,11 @@ This file breaks the work into concrete implementation tasks. Complete tasks in 
 ## Task 1: Initialize app foundation
 
 ### Objective
+
 Set up the base application and tooling.
 
 ### Requirements
+
 - Create a Next.js app using App Router
 - Use TypeScript
 - Add Tailwind CSS
@@ -49,12 +51,14 @@ Set up the base application and tooling.
 - Add baseline test scripts to `package.json`
 
 ### Testing for this task
+
 - Add a basic smoke test or route render test
 - Verify the app boots successfully in local development
 - Verify unit test tooling runs successfully
 - Verify Playwright is configured and can run a minimal smoke check if practical
 
 ### Acceptance criteria
+
 - App runs locally
 - App uses `/app` directory and App Router conventions only
 - Tailwind works
@@ -69,10 +73,13 @@ Set up the base application and tooling.
 ## Task 2: Configure database schema and migrations
 
 ### Objective
+
 Create the initial relational data model for V1.
 
 ### Requirements
+
 Implement the core schema from `CLAUDE.md`:
+
 - User
 - StudentProfile
 - StudentSkill
@@ -88,6 +95,7 @@ Implement the core schema from `CLAUDE.md`:
 - AdminNote
 
 Include:
+
 - enums for roles and statuses
 - `deletedAt` fields where required
 - `programTag` fields
@@ -95,15 +103,18 @@ Include:
 - storage key fields instead of signed URLs
 
 ### Important implementation notes
+
 - Soft-delete-compatible uniqueness must be handled for fields like `User.email` and `CompanyProfile.slug`
 - If partial unique indexes are not easy through Prisma alone, implement a safe fallback approach and document it
 
 ### Testing for this task
+
 - Add a migration validation step
 - Add schema-level tests or database integration tests where practical for core constraints
 - Verify soft-delete uniqueness strategy works as intended
 
 ### Acceptance criteria
+
 - Prisma schema is complete
 - Initial migration runs successfully
 - No core table or enum is missing
@@ -114,9 +125,11 @@ Include:
 ## Task 3: Implement authentication and role-aware sessions
 
 ### Objective
+
 Add auth and make user identity available throughout the app.
 
 ### Requirements
+
 - Implement auth with either NextAuth or Clerk
 - Support email/password auth where practical for the selected auth provider
 - Support login, signup, logout, and password reset flow if practical in V1
@@ -126,10 +139,12 @@ Add auth and make user identity available throughout the app.
 - Verify approval state from the database for sensitive actions
 
 ### Testing for this task
+
 - Add unit tests for auth helpers and session shaping logic
 - Add integration tests for signup, login, logout, and protected route access
 
 ### Acceptance criteria
+
 - Users can sign up and log in
 - Session exposes user id and role
 - Protected routes redirect correctly
@@ -140,10 +155,13 @@ Add auth and make user identity available throughout the app.
 ## Task 4: Seed development data
 
 ### Objective
+
 Create realistic seed data for local development and demos using the actual chosen authentication approach.
 
 ### Requirements
+
 Seed:
+
 - 1 admin
 - 3 companies
 - 10 students
@@ -154,19 +172,23 @@ Seed:
 - multiple `programTag` values
 
 Include companies in different approval states where useful:
+
 - approved
 - pending
 - suspended
 
 ### Important implementation notes
+
 - Seed users must align with the selected auth provider and session model
 - If the selected auth provider makes seeded login credentials impractical, seed database-backed demo records for app data and document a simple local flow for creating test login accounts
 
 ### Testing for this task
+
 - Verify seed script runs on a fresh database
 - Add a basic seed validation script or test that checks row counts and key relationships
 
 ### Acceptance criteria
+
 - Seed script runs successfully
 - Local database contains realistic data
 - Seed data matches the actual auth implementation
@@ -177,19 +199,23 @@ Include companies in different approval states where useful:
 ## Task 5: Build onboarding and role-based routing
 
 ### Objective
+
 Route new users into the correct flow and help them complete first-run setup.
 
 ### Requirements
+
 - After signup, route students to student onboarding
 - After signup, route companies to company onboarding
 - Seed admin user can access admin routes
 - Add empty states and onboarding prompts
 
 ### Testing for this task
+
 - Add integration tests for post-signup routing by role
 - Add integration tests for admin access and non-admin rejection on admin routes
 
 ### Acceptance criteria
+
 - Student users land in student flow
 - Company users land in company flow
 - Admin user lands in admin flow
@@ -200,9 +226,11 @@ Route new users into the correct flow and help them complete first-run setup.
 ## Task 6: Build student profile flow
 
 ### Objective
+
 Allow students to create and maintain a complete profile.
 
 ### Requirements
+
 - Build `/student/profile`
 - Support create and edit
 - Implement fields from `CLAUDE.md`
@@ -212,11 +240,13 @@ Allow students to create and maintain a complete profile.
 - Server-side validation required
 
 ### Testing for this task
+
 - Add unit tests for profile completeness calculation
 - Add integration tests for create and edit flows
 - Add permission tests to ensure only the owner can edit the profile
 
 ### Acceptance criteria
+
 - Student can create and edit profile
 - Resume upload works with configured provider or local fallback
 - Profile completeness is calculated and shown
@@ -227,9 +257,11 @@ Allow students to create and maintain a complete profile.
 ## Task 7: Build company profile flow
 
 ### Objective
+
 Allow companies to create and maintain their company profile.
 
 ### Requirements
+
 - Build `/company/profile`
 - Support create and edit
 - Implement fields from `CLAUDE.md`
@@ -238,11 +270,13 @@ Allow companies to create and maintain their company profile.
 - If moderation is enabled, show that job postings are not public until approval
 
 ### Testing for this task
+
 - Add integration tests for create and edit flows
 - Add permission tests to ensure only the owner can edit the company profile
 - Add tests for `approvalStatus` messaging in the UI where practical
 
 ### Acceptance criteria
+
 - Company can create and edit profile
 - `approvalStatus` is visible and understandable
 - Unauthorized users cannot edit another company’s profile
@@ -252,9 +286,11 @@ Allow companies to create and maintain their company profile.
 ## Task 8: Implement approval workflow
 
 ### Objective
+
 Support admin approval and suspension of companies.
 
 ### Requirements
+
 - Companies start as `PENDING` if moderation is enabled
 - Admin can change `approvalStatus` to `APPROVED` or `SUSPENDED`
 - `PENDING` and `SUSPENDED` companies cannot have publicly visible job postings
@@ -262,11 +298,13 @@ Support admin approval and suspension of companies.
 - Sensitive publish actions must check current DB approval state
 
 ### Testing for this task
+
 - Add unit tests for approval logic
 - Add integration tests for admin approval and suspension flows
 - Add tests ensuring public visibility respects `approvalStatus`
 
 ### Acceptance criteria
+
 - Admin can approve and suspend companies
 - Public job posting visibility respects `approvalStatus`
 - Company sees correct guidance in dashboard/profile flows
@@ -277,9 +315,11 @@ Support admin approval and suspension of companies.
 ## Task 9: Build job posting CRUD for companies
 
 ### Objective
+
 Allow companies to create and manage internship job postings.
 
 ### Requirements
+
 - Build `/company/job-postings`
 - Build `/company/job-postings/new`
 - Build `/company/job-postings/[id]`
@@ -289,11 +329,13 @@ Allow companies to create and manage internship job postings.
 - Generate clean slugs if public job posting pages use them
 
 ### Testing for this task
+
 - Add unit tests for job posting status transitions if needed
 - Add integration tests for create, edit, publish, pause, close, and archive flows
 - Add permission tests to ensure companies can only manage their own job postings
 
 ### Acceptance criteria
+
 - Company can create and edit job postings
 - Company can change job posting status
 - Public visibility rules are enforced correctly
@@ -304,9 +346,11 @@ Allow companies to create and manage internship job postings.
 ## Task 10: Build public job posting browsing and job posting detail pages
 
 ### Objective
+
 Let students and visitors browse available internship job postings.
 
 ### Requirements
+
 - Build `/job-postings`
 - Build `/job-postings/[slug]`
 - Add search and filters:
@@ -320,11 +364,13 @@ Let students and visitors browse available internship job postings.
 - Show company details on the job posting page
 
 ### Testing for this task
+
 - Add integration tests for job posting list and detail rendering
 - Add tests for search/filter query behavior
 - Add tests ensuring pending and suspended company job postings do not appear publicly
 
 ### Acceptance criteria
+
 - Public job posting list loads with real data
 - Search and filter work
 - Pending and suspended company job postings do not appear publicly
@@ -335,18 +381,22 @@ Let students and visitors browse available internship job postings.
 ## Task 11: Build saved job postings feature
 
 ### Objective
+
 Allow students to save job postings for later review.
 
 ### Requirements
+
 - Add save/unsave action on job postings
 - Build `/student/saved-job-postings`
 - Restrict saved job postings to authenticated student users
 
 ### Testing for this task
+
 - Add integration tests for save and unsave actions
 - Add permission tests ensuring users only see their own saved job postings
 
 ### Acceptance criteria
+
 - Student can save and unsave job postings
 - Saved job postings list shows correct data
 - Other users cannot see another student’s saved job postings
@@ -356,9 +406,11 @@ Allow students to save job postings for later review.
 ## Task 12: Build application flow
 
 ### Objective
+
 Allow students to apply to job postings and companies to review applicants.
 
 ### Requirements
+
 - Student can apply from a job posting detail page
 - Use profile data and optional cover letter
 - Snapshot `resumeStorageKey` into the application record as `resumeStorageKeySnapshot`
@@ -368,12 +420,14 @@ Allow students to apply to job postings and companies to review applicants.
 - Enforce permissions strictly
 
 ### Testing for this task
+
 - Add unit tests for duplicate application prevention if implemented
 - Add integration tests for student application submission
 - Add integration tests for company applicant view access
 - Add permission tests for application visibility
 
 ### Acceptance criteria
+
 - Student can apply successfully
 - Student sees application in dashboard
 - Company can view applicants for its own job postings
@@ -385,10 +439,13 @@ Allow students to apply to job postings and companies to review applicants.
 ## Task 13: Build application status management
 
 ### Objective
+
 Allow companies to move applicants through the funnel.
 
 ### Requirements
+
 Support statuses:
+
 - Applied
 - In Review
 - Interviewing
@@ -402,11 +459,13 @@ Support statuses:
 - Optional email notification should use a real provider or local logging fallback
 
 ### Testing for this task
+
 - Add unit tests for valid and invalid status transitions
 - Add integration tests for company status updates
 - Add tests that students see updated status correctly
 
 ### Acceptance criteria
+
 - Company can update statuses
 - Student sees updated status
 - Status transitions persist correctly
@@ -417,9 +476,11 @@ Support statuses:
 ## Task 14: Build messaging system with constrained permissions
 
 ### Objective
+
 Support company-initiated communication tied to applications.
 
 ### Requirements
+
 - Messages belong to a `MessageThread`
 - A company can initiate a `MessageThread` with an applicant to its own job posting
 - A student cannot initiate a free-form `MessageThread`
@@ -429,12 +490,14 @@ Support company-initiated communication tied to applications.
 - Add unread/read state if straightforward
 
 ### Testing for this task
+
 - Add unit tests for messaging permission rules
 - Add integration tests for company message thread creation
 - Add integration tests for student reply behavior
 - Add tests ensuring unauthorized message thread access is blocked
 
 ### Acceptance criteria
+
 - Company can initiate a message thread
 - Student can reply only in an allowed message thread
 - No one can message outside authorized application context
@@ -445,10 +508,13 @@ Support company-initiated communication tied to applications.
 ## Task 15: Build admin dashboard
 
 ### Objective
+
 Give program admins operational visibility.
 
 ### Requirements
+
 Build `/admin` with:
+
 - overview metrics
 - funnel snapshot
 - operational alerts
@@ -459,11 +525,13 @@ Build `/admin` with:
 - program tag filter
 
 ### Testing for this task
+
 - Add integration tests for admin-only access
 - Add integration tests for core dashboard data loading
 - Add query tests for major aggregations where practical
 
 ### Acceptance criteria
+
 - Admin dashboard loads real aggregated data
 - Dashboard is scannable and functional
 - Non-admin users cannot access dashboard
@@ -474,16 +542,20 @@ Build `/admin` with:
 ## Task 16: Build admin management pages
 
 ### Objective
+
 Let admins inspect and manage platform entities.
 
 ### Requirements
+
 Build:
+
 - `/admin/companies`
 - `/admin/job-postings`
 - `/admin/students`
 - `/admin/applications`
 
 Support:
+
 - table views
 - basic filtering
 - search where sensible
@@ -492,11 +564,13 @@ Support:
 - optional internal notes if straightforward
 
 ### Testing for this task
+
 - Add integration tests for admin page access control
 - Add tests for filtering and approval actions
 - Add tests for soft-delete behavior where implemented
 
 ### Acceptance criteria
+
 - Admin can view and manage all core entities
 - Filtering works
 - Soft-deleted items are handled correctly
@@ -507,10 +581,13 @@ Support:
 ## Task 17: Add activity event tracking
 
 ### Objective
+
 Track important system events for admin visibility and auditability.
 
 ### Requirements
+
 Record events for actions such as:
+
 - student signup
 - company signup
 - company approval status change
@@ -520,10 +597,12 @@ Record events for actions such as:
 - message thread creation
 
 ### Testing for this task
+
 - Add integration tests verifying key events are created
 - Add tests ensuring event creation does not block primary flows on failure if you choose asynchronous or best-effort behavior
 
 ### Acceptance criteria
+
 - Events are persisted
 - Admin recent activity feed reads from real data
 - Event creation does not break primary flows
@@ -533,19 +612,23 @@ Record events for actions such as:
 ## Task 18: Implement email behavior with local fallback
 
 ### Objective
+
 Support notifications without blocking local development.
 
 ### Requirements
+
 - For local development, log structured email payloads to server console
 - Do not block core flows on missing email credentials
 - Support env-based provider integration later
 - Document behavior clearly
 
 ### Testing for this task
+
 - Add unit tests for email adapter selection or fallback logic
 - Add integration tests ensuring user flows still succeed without provider credentials
 
 ### Acceptance criteria
+
 - Core flows work without email provider credentials
 - Email payload logging is readable in local dev
 - Real provider can be enabled later without major refactor
@@ -555,9 +638,11 @@ Support notifications without blocking local development.
 ## Task 19: Implement storage behavior with local fallback
 
 ### Objective
+
 Support uploads without making local development fragile.
 
 ### Requirements
+
 - Prefer Vercel Blob or Supabase Storage, or implement S3 cleanly
 - If storage credentials are missing locally, support filesystem or mock fallback
 - Store stable object keys in DB
@@ -565,11 +650,13 @@ Support uploads without making local development fragile.
 - Document local vs production behavior
 
 ### Testing for this task
+
 - Add unit tests for storage adapter selection or fallback logic
 - Add integration tests for upload and authorized file access
 - Add permission tests to ensure unauthorized users cannot access protected files
 
 ### Acceptance criteria
+
 - Resume and logo upload work in configured environments
 - Local development still works without production credentials
 - DB stores storage keys, not expiring signed URLs
@@ -580,9 +667,11 @@ Support uploads without making local development fragile.
 ## Task 20: Final end-to-end verification and regression pass
 
 ### Objective
+
 Validate the whole product as an integrated system.
 
 ### Requirements
+
 - Run end-to-end verification across all core user flows
 - Run regression checks across auth, permissions, approval logic, applications, messaging, dashboard metrics, and local fallbacks
 - Fill only small remaining test gaps discovered during final verification
@@ -590,6 +679,7 @@ Validate the whole product as an integrated system.
 - Do not treat this task as the first time core unit and integration tests are written
 
 ### Required end-to-end coverage
+
 - student signs up and applies
 - company signs up and creates a draft job posting
 - admin approves company
@@ -600,6 +690,7 @@ Validate the whole product as an integrated system.
 - admin loads dashboard
 
 ### Acceptance criteria
+
 - End-to-end tests pass
 - Regression checks pass
 - Core workflows function correctly as one integrated system
@@ -610,15 +701,19 @@ Validate the whole product as an integrated system.
 ## Task 21: Write developer documentation
 
 ### Objective
+
 Make the repo usable by a human developer after Claude finishes coding.
 
 ### Requirements
+
 Create or update:
+
 - `README.md`
 - `.env.example`
 - `DEPLOYMENT.md`
 
 ### README must include
+
 - project overview
 - local setup
 - env vars
@@ -630,6 +725,7 @@ Create or update:
 - test commands
 
 ### DEPLOYMENT must include
+
 - Vercel deployment flow
 - managed Postgres setup
 - Prisma production migration steps
@@ -637,10 +733,12 @@ Create or update:
 - rollback/failure notes
 
 ### Testing for this task
+
 - Verify documentation steps work on a clean environment where practical
 - Verify all mentioned commands match the actual repo scripts
 
 ### Acceptance criteria
+
 - A new developer can boot the app locally from docs
 - Deployment steps are explicit
 - Local development caveats are documented
@@ -650,9 +748,11 @@ Create or update:
 ## Task 22: Final polish and release readiness
 
 ### Objective
+
 Make the app feel production-ready for V1.
 
 ### Requirements
+
 - Improve empty states
 - Improve error states
 - Ensure loading states are reasonable
@@ -663,11 +763,13 @@ Make the app feel production-ready for V1.
 - Ensure soft-deleted content is excluded from standard queries
 
 ### Testing for this task
+
 - Run full test suite one more time
 - Run a quick manual QA pass on the main flows
 - Confirm no critical regression was introduced during polish
 
 ### Acceptance criteria
+
 - Main flows feel complete
 - App is coherent visually and functionally
 - No broken route or obvious unfinished core feature remains

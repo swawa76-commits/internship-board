@@ -56,7 +56,10 @@ export function TextField({
 }) {
   return (
     <div className={`space-y-1 ${className ?? ""}`}>
-      <label htmlFor={name} className="text-xs font-medium text-muted-foreground">
+      <label
+        htmlFor={name}
+        className="text-xs font-medium text-muted-foreground"
+      >
         {label}
       </label>
       <input
@@ -84,7 +87,10 @@ export function SelectField({
 }) {
   return (
     <div className="space-y-1">
-      <label htmlFor={name} className="text-xs font-medium text-muted-foreground">
+      <label
+        htmlFor={name}
+        className="text-xs font-medium text-muted-foreground"
+      >
         {label}
       </label>
       <select

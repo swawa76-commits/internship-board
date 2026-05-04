@@ -1,6 +1,9 @@
 import Link from "next/link";
 
-import { FilterBar, type FilterBarValues } from "@/features/public-jobs/filter-bar";
+import {
+  FilterBar,
+  type FilterBarValues,
+} from "@/features/public-jobs/filter-bar";
 import { JobCard } from "@/features/public-jobs/job-card";
 import { getSessionUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db/client";
@@ -29,7 +32,10 @@ const VALID_TERM = new Set<InternshipTerm>([
 ]);
 const VALID_COMP = new Set<CompensationType>(["PAID", "UNPAID", "STIPEND"]);
 
-function pickEnum<T>(value: string | undefined, allowed: Set<T>): T | undefined {
+function pickEnum<T>(
+  value: string | undefined,
+  allowed: Set<T>,
+): T | undefined {
   if (!value) return undefined;
   return allowed.has(value as T) ? (value as T) : undefined;
 }
@@ -113,8 +119,8 @@ export default async function PublicJobsPage({
           Browse internships
         </h1>
         <p className="text-sm text-muted-foreground">
-          {total} {total === 1 ? "open posting" : "open postings"} from
-          approved companies.
+          {total} {total === 1 ? "open posting" : "open postings"} from approved
+          companies.
         </p>
       </header>
 
@@ -126,7 +132,8 @@ export default async function PublicJobsPage({
         {results.length === 0 ? (
           <div className="rounded-md border border-dashed border-border bg-card p-8 text-center">
             <p className="text-sm text-muted-foreground">
-              No postings match {hasAnyFilter ? "those filters" : "the visible set"}.
+              No postings match{" "}
+              {hasAnyFilter ? "those filters" : "the visible set"}.
             </p>
             {hasAnyFilter ? (
               <Link

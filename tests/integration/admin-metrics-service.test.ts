@@ -266,7 +266,9 @@ describe.skipIf(skip)("admin-metrics · overview aggregations", () => {
     const before = await getAdminDashboard(admin);
     if (!before.ok) throw new Error("not admin");
 
-    const co = await makeApprovedCoWithJob("overview-jobs-co", { adminId: admin });
+    const co = await makeApprovedCoWithJob("overview-jobs-co", {
+      adminId: admin,
+    });
     // Add a draft posting.
     const draft = await createJobPosting(co.companyUserId, {
       ...POSTING_BASE,
@@ -326,7 +328,9 @@ describe.skipIf(skip)("admin-metrics · overview aggregations", () => {
     expect(after.data.funnel.totalApplications).toBe(
       after.data.overview.totalApplications,
     );
-    expect(after.data.funnel.jobPostingsWithAtLeastOneApplicant).toBeGreaterThanOrEqual(
+    expect(
+      after.data.funnel.jobPostingsWithAtLeastOneApplicant,
+    ).toBeGreaterThanOrEqual(
       before.data.funnel.jobPostingsWithAtLeastOneApplicant + 1,
     );
   });
@@ -427,9 +431,9 @@ describe.skipIf(skip)("admin-metrics · time filter", () => {
 
     const w90 = await getAdminDashboard(admin, { applicationsWindow: "90d" });
     if (!w90.ok) throw new Error("not admin");
-    expect(w90.data.overview.applicationsInSelectedWindow).toBeGreaterThanOrEqual(
-      after.data.overview.applicationsLast30Days,
-    );
+    expect(
+      w90.data.overview.applicationsInSelectedWindow,
+    ).toBeGreaterThanOrEqual(after.data.overview.applicationsLast30Days);
   });
 });
 
@@ -490,56 +494,59 @@ describe.skipIf(skip)("admin-metrics · program tag filter", () => {
   });
 });
 
-describe.skipIf(skip)("admin-metrics · top postings + company participation", () => {
-  it("ranks postings by application count descending", async () => {
-    const admin = await makeAdmin("top-rank");
-    const co = await makeApprovedCoWithJob("top-rank-co", { adminId: admin });
-    // Two applicants for this posting.
-    for (const i of [0, 1]) {
-      const s = await makeStudent(`top-${i}`);
-      const a = await submitApplication(s, {
+describe.skipIf(skip)(
+  "admin-metrics · top postings + company participation",
+  () => {
+    it("ranks postings by application count descending", async () => {
+      const admin = await makeAdmin("top-rank");
+      const co = await makeApprovedCoWithJob("top-rank-co", { adminId: admin });
+      // Two applicants for this posting.
+      for (const i of [0, 1]) {
+        const s = await makeStudent(`top-${i}`);
+        const a = await submitApplication(s, {
+          jobPostingId: co.jobId,
+          coverLetter: null,
+        });
+        if (!a.ok) throw new Error("setup");
+      }
+
+      const r = await getAdminDashboard(admin);
+      if (!r.ok) throw new Error("not admin");
+      const ranked = r.data.topJobPostings.find((p) => p.id === co.jobId);
+      expect(ranked).toBeDefined();
+      expect(ranked?.applicationCount).toBeGreaterThanOrEqual(2);
+      // Sorted descending overall.
+      for (let i = 1; i < r.data.topJobPostings.length; i++) {
+        expect(
+          r.data.topJobPostings[i - 1].applicationCount,
+        ).toBeGreaterThanOrEqual(r.data.topJobPostings[i].applicationCount);
+      }
+    });
+
+    it("companyParticipation rolls up open postings + total applicants per company", async () => {
+      const admin = await makeAdmin("part");
+      const co = await makeApprovedCoWithJob("part-co", { adminId: admin });
+      const s1 = await makeStudent("part-s1");
+      const s2 = await makeStudent("part-s2");
+      const a1 = await submitApplication(s1, {
         jobPostingId: co.jobId,
         coverLetter: null,
       });
-      if (!a.ok) throw new Error("setup");
-    }
+      const a2 = await submitApplication(s2, {
+        jobPostingId: co.jobId,
+        coverLetter: null,
+      });
+      if (!a1.ok || !a2.ok) throw new Error("setup");
 
-    const r = await getAdminDashboard(admin);
-    if (!r.ok) throw new Error("not admin");
-    const ranked = r.data.topJobPostings.find((p) => p.id === co.jobId);
-    expect(ranked).toBeDefined();
-    expect(ranked?.applicationCount).toBeGreaterThanOrEqual(2);
-    // Sorted descending overall.
-    for (let i = 1; i < r.data.topJobPostings.length; i++) {
-      expect(r.data.topJobPostings[i - 1].applicationCount).toBeGreaterThanOrEqual(
-        r.data.topJobPostings[i].applicationCount,
+      const r = await getAdminDashboard(admin);
+      if (!r.ok) throw new Error("not admin");
+      const row = r.data.companyParticipation.find(
+        (c) => c.id === co.companyProfileId,
       );
-    }
-  });
-
-  it("companyParticipation rolls up open postings + total applicants per company", async () => {
-    const admin = await makeAdmin("part");
-    const co = await makeApprovedCoWithJob("part-co", { adminId: admin });
-    const s1 = await makeStudent("part-s1");
-    const s2 = await makeStudent("part-s2");
-    const a1 = await submitApplication(s1, {
-      jobPostingId: co.jobId,
-      coverLetter: null,
+      expect(row).toBeDefined();
+      expect(row?.openJobPostings).toBe(1);
+      expect(row?.totalApplicants).toBeGreaterThanOrEqual(2);
+      expect(row?.approvalStatus).toBe("APPROVED");
     });
-    const a2 = await submitApplication(s2, {
-      jobPostingId: co.jobId,
-      coverLetter: null,
-    });
-    if (!a1.ok || !a2.ok) throw new Error("setup");
-
-    const r = await getAdminDashboard(admin);
-    if (!r.ok) throw new Error("not admin");
-    const row = r.data.companyParticipation.find(
-      (c) => c.id === co.companyProfileId,
-    );
-    expect(row).toBeDefined();
-    expect(row?.openJobPostings).toBe(1);
-    expect(row?.totalApplicants).toBeGreaterThanOrEqual(2);
-    expect(row?.approvalStatus).toBe("APPROVED");
-  });
-});
+  },
+);

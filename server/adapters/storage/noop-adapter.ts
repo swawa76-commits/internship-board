@@ -20,7 +20,12 @@ export class NoopStorageAdapter implements StorageAdapter {
     { contentType: string; filename: string; bytes: Buffer }
   >();
 
-  async put({ prefix, filename, contentType, bytes }: PutInput): Promise<PutResult> {
+  async put({
+    prefix,
+    filename,
+    contentType,
+    bytes,
+  }: PutInput): Promise<PutResult> {
     const id = randomUUID();
     const storageKey = `${prefix}/${id}`;
     this.store.set(storageKey, { contentType, filename, bytes });

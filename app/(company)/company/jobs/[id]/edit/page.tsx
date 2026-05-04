@@ -45,14 +45,10 @@ export default async function EditJobPostingPage({
           </h1>
         </header>
         <section className="mx-auto w-full max-w-3xl rounded-lg border border-border bg-card p-6">
-          <p
-            role="status"
-            className="text-sm text-muted-foreground"
-          >
-            This posting is currently <b>{posting.status}</b>. The V1
-            self-serve form supports DRAFT and PUBLISHED only. Postings
-            in other states are managed by an admin — reach out if you
-            need this one moved.
+          <p role="status" className="text-sm text-muted-foreground">
+            This posting is currently <b>{posting.status}</b>. The V1 self-serve
+            form supports DRAFT and PUBLISHED only. Postings in other states are
+            managed by an admin — reach out if you need this one moved.
           </p>
         </section>
       </main>

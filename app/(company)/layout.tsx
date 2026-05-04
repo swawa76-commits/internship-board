@@ -37,7 +37,10 @@ export default async function CompanyRouteLayout({
             <Link className="hover:text-foreground" href="/company/jobs">
               Postings
             </Link>
-            <Link className="hover:text-foreground" href="/company/applications">
+            <Link
+              className="hover:text-foreground"
+              href="/company/applications"
+            >
               Applicants
             </Link>
             <Link

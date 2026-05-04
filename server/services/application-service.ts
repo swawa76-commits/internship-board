@@ -374,7 +374,11 @@ export async function listApplicationsForCompany(
 
 // ---------- Status transitions ----------
 
-export type CompanyTransition = "IN_REVIEW" | "INTERVIEWING" | "OFFER" | "REJECTED";
+export type CompanyTransition =
+  | "IN_REVIEW"
+  | "INTERVIEWING"
+  | "OFFER"
+  | "REJECTED";
 
 export type TransitionResult =
   | {
@@ -418,7 +422,11 @@ export async function transitionApplicationStatus(
       id: applicationId,
       jobPosting: { companyProfileId: company.id },
     },
-    select: { id: true, status: true, studentProfile: { select: { userId: true } } },
+    select: {
+      id: true,
+      status: true,
+      studentProfile: { select: { userId: true } },
+    },
   });
   if (!application) return { ok: false, reason: "not_found" };
 
@@ -461,10 +469,7 @@ export async function transitionApplicationStatus(
       },
     },
   });
-  if (
-    target_ctx &&
-    target_ctx.studentProfile.user.deletedAt === null
-  ) {
+  if (target_ctx && target_ctx.studentProfile.user.deletedAt === null) {
     await dispatchEmail(
       studentApplicationStatusChanged({
         to: target_ctx.studentProfile.user.email,

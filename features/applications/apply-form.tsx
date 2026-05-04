@@ -31,8 +31,8 @@ export function ApplyForm({ jobPostingId }: { jobPostingId: string }) {
           placeholder="A few sentences on why this role caught your eye."
         />
         <p className="text-xs text-muted-foreground">
-          Your current resume will be attached automatically. The version
-          you submit now is preserved even if you upload a new one later.
+          Your current resume will be attached automatically. The version you
+          submit now is preserved even if you upload a new one later.
         </p>
       </div>
 

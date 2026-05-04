@@ -16,9 +16,8 @@ export default async function StudentMessagesPage() {
         <h1 className="text-3xl font-semibold tracking-tight">Messages</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {threads.length}{" "}
-          {threads.length === 1 ? "conversation" : "conversations"}.
-          Companies can reach out about your applications — you&apos;ll see
-          replies here.
+          {threads.length === 1 ? "conversation" : "conversations"}. Companies
+          can reach out about your applications — you&apos;ll see replies here.
         </p>
       </header>
 

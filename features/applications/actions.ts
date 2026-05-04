@@ -29,8 +29,7 @@ const FAILURE_MESSAGES: Record<SubmitFailureReason, string> = {
   resume_required:
     "A resume is required to apply. Upload one on your profile and try again.",
   already_applied: "You've already applied to this posting.",
-  job_not_open:
-    "This posting is no longer accepting applications.",
+  job_not_open: "This posting is no longer accepting applications.",
 };
 
 function pickFormString(formData: FormData, key: string): string {
@@ -109,4 +108,3 @@ export async function withdrawApplicationAction(
   revalidatePath("/student/dashboard");
   revalidatePath("/student", "layout");
 }
-

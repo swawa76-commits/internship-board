@@ -159,7 +159,9 @@ const STUDENTS: StudentSeed[] = Array.from({ length: 10 }).map((_, i) => {
   return {
     email: `student${String(idx).padStart(2, "0")}@example.test`,
     fullName: `Student ${idx} Test`,
-    university: ["State University", "Riverbend College", "Coastal Tech"][i % 3],
+    university: ["State University", "Riverbend College", "Coastal Tech"][
+      i % 3
+    ],
     major: [
       "Computer Science",
       "Mechanical Engineering",
@@ -461,7 +463,8 @@ async function upsertUser(opts: {
   /** Days ago this user signed up. Stamped onto createdAt + updatedAt. */
   signedUpDaysAgo?: number;
 }): Promise<{ id: string }> {
-  const stamp = opts.signedUpDaysAgo != null ? daysAgo(opts.signedUpDaysAgo) : null;
+  const stamp =
+    opts.signedUpDaysAgo != null ? daysAgo(opts.signedUpDaysAgo) : null;
 
   // findFirst against active rows so soft-deleted lookalikes don't collide.
   const existing = await prisma.user.findFirst({
@@ -800,7 +803,9 @@ async function main(): Promise<void> {
     where: { metadataJson: { path: ["seed"], equals: true } },
   });
 
-  const eventsToCreate: Array<Parameters<typeof prisma.activityEvent.create>[0]["data"]> = [];
+  const eventsToCreate: Array<
+    Parameters<typeof prisma.activityEvent.create>[0]["data"]
+  > = [];
 
   for (const c of COMPANIES) {
     const company = companyByEmail.get(c.email)!;
@@ -882,7 +887,9 @@ async function main(): Promise<void> {
   console.log("Row counts:");
   console.table(counts);
 
-  console.log(`\nShared dev password for all seeded users: ${SHARED_DEV_PASSWORD}\n`);
+  console.log(
+    `\nShared dev password for all seeded users: ${SHARED_DEV_PASSWORD}\n`,
+  );
 
   console.log("Login credentials:");
   console.table([

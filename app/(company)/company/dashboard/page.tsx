@@ -68,7 +68,10 @@ export default async function CompanyDashboardPage() {
       <section className="mx-auto w-full max-w-5xl">
         <p className="text-sm text-muted-foreground">
           Need to message an applicant?{" "}
-          <Link className="font-medium text-foreground hover:underline" href="/company/messages">
+          <Link
+            className="font-medium text-foreground hover:underline"
+            href="/company/messages"
+          >
             Open messages →
           </Link>
         </p>
@@ -92,7 +95,12 @@ function DashboardCard({
     <article className="flex flex-col gap-3 rounded-lg border border-border bg-card p-5">
       <h2 className="text-lg font-semibold">{title}</h2>
       <p className="text-sm text-muted-foreground">{description}</p>
-      <Button asChild variant="outline" size="sm" className="mt-auto self-start">
+      <Button
+        asChild
+        variant="outline"
+        size="sm"
+        className="mt-auto self-start"
+      >
         <Link href={ctaHref}>{ctaLabel}</Link>
       </Button>
     </article>

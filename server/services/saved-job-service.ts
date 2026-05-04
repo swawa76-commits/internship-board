@@ -13,9 +13,7 @@ import { publicJobPostingVisibilityWhere } from "@/server/services/visibility-se
  * Mirrors the Result discriminated-union pattern from application-service.
  */
 
-export type SaveFailureReason =
-  | "not_student"
-  | "job_not_savable";
+export type SaveFailureReason = "not_student" | "job_not_savable";
 export type SaveResult =
   | { ok: true; alreadySaved: boolean }
   | { ok: false; reason: SaveFailureReason };

@@ -43,7 +43,12 @@ export async function GET(
   }
 
   if (result.kind === "redirect") {
-    return NextResponse.redirect(result.url);
+    // Presigned URL bounded by S3_SIGNED_URL_TTL_SECONDS. Never cache
+    // the 302 — the Location header expires faster than any reasonable
+    // cache window, and resume URLs are owner-private regardless.
+    return NextResponse.redirect(result.url, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
   }
 
   return new NextResponse(new Uint8Array(result.bytes), {

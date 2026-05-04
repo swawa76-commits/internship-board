@@ -70,8 +70,8 @@ export default async function CompanyProfilePage() {
             : "Your company profile"}
         </h1>
         <p className="text-muted-foreground">
-          Students see this when you publish job postings. Save changes any
-          time — sections update independently.
+          Students see this when you publish job postings. Save changes any time
+          — sections update independently.
         </p>
       </header>
 

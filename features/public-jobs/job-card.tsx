@@ -3,7 +3,10 @@ import Link from "next/link";
 import { SaveJobToggle } from "@/features/saved-job-postings/save-job-toggle";
 import type { PublicJobListItem } from "@/server/services/public-job-search";
 
-const TERM_LABEL: Record<NonNullable<PublicJobListItem["internshipTerm"]>, string> = {
+const TERM_LABEL: Record<
+  NonNullable<PublicJobListItem["internshipTerm"]>,
+  string
+> = {
   SUMMER: "Summer",
   FALL: "Fall",
   WINTER: "Winter",
@@ -53,8 +56,12 @@ export function JobCard({
           </div>
           <p className="text-sm text-muted-foreground">
             {posting.company.companyName}
-            {posting.company.industry ? <> · {posting.company.industry}</> : null}
-            {posting.company.headquarters ? <> · {posting.company.headquarters}</> : null}
+            {posting.company.industry ? (
+              <> · {posting.company.industry}</>
+            ) : null}
+            {posting.company.headquarters ? (
+              <> · {posting.company.headquarters}</>
+            ) : null}
           </p>
           <div className="flex flex-wrap gap-2 pt-1 text-xs">
             <Badge>{posting.workplaceType}</Badge>

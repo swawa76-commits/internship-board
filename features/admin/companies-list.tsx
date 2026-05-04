@@ -19,9 +19,7 @@ export type AdminCompanyRow = {
  */
 export function AdminCompaniesList({ rows }: { rows: AdminCompanyRow[] }) {
   if (rows.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">No companies yet.</p>
-    );
+    return <p className="text-sm text-muted-foreground">No companies yet.</p>;
   }
   return (
     <div className="overflow-x-auto rounded-md border border-border">

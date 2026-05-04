@@ -2,28 +2,36 @@ import "server-only";
 
 import { ConsoleEmailAdapter } from "./console-adapter";
 import type { EmailAdapter } from "./email-adapter";
+import { ResendEmailAdapter } from "./resend-adapter";
 
-export type { EmailAdapter, EmailMessage, EmailSendResult } from "./email-adapter";
-export { ConsoleEmailAdapter };
+export type {
+  EmailAdapter,
+  EmailMessage,
+  EmailSendResult,
+} from "./email-adapter";
+export { ConsoleEmailAdapter, ResendEmailAdapter };
 
 /**
  * Resolve the active email adapter based on env vars.
  *
  *   EMAIL_DRIVER=console   → ConsoleEmailAdapter (logs to stdout)
+ *   EMAIL_DRIVER=resend    → ResendEmailAdapter (production)
  *   EMAIL_DRIVER=<other>   → unknown driver: warn + fall back to console
  *   (unset)                → ConsoleEmailAdapter
  *
- * No real SMTP/SES adapter ships in V1; the brief is explicit that a
- * real provider can be wired in later through the same interface
- * without touching call sites. The ONLY hard requirement here is that
- * a missing/misconfigured driver MUST NOT crash — fall back, log a
- * one-line warning, and keep the app booting.
+ * Production safety: `resend` requires every env var listed in
+ * `ResendEmailAdapter.REQUIRED_ENV`. If any is missing, construction
+ * throws — by design. We do NOT silently fall back to console in that
+ * case: a misconfigured production deploy should fail loudly on boot
+ * rather than silently drop every notification.
  */
 export function selectEmailAdapter(): EmailAdapter {
   const driver = (process.env.EMAIL_DRIVER ?? "console").toLowerCase();
   switch (driver) {
     case "console":
       return new ConsoleEmailAdapter();
+    case "resend":
+      return new ResendEmailAdapter();
     default:
       console.warn(
         `[email] unknown EMAIL_DRIVER="${driver}", falling back to console adapter`,

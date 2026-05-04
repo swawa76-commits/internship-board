@@ -19,11 +19,7 @@ export function SaveJobToggle({
   return (
     <form action={toggleSavedJobAction}>
       <input type="hidden" name="jobPostingId" value={jobPostingId} />
-      <input
-        type="hidden"
-        name="intent"
-        value={isSaved ? "unsave" : "save"}
-      />
+      <input type="hidden" name="intent" value={isSaved ? "unsave" : "save"} />
       <Button
         type="submit"
         size={size}

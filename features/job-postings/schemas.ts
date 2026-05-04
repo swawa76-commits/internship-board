@@ -12,14 +12,11 @@ const optionalText = (max: number) =>
   );
 
 const optionalInt = (min: number, max: number) =>
-  z.preprocess(
-    (v) => {
-      if (v === "" || v == null) return null;
-      const n = typeof v === "number" ? v : Number(v);
-      return Number.isFinite(n) ? n : null;
-    },
-    z.number().int().min(min).max(max).nullable(),
-  );
+  z.preprocess((v) => {
+    if (v === "" || v == null) return null;
+    const n = typeof v === "number" ? v : Number(v);
+    return Number.isFinite(n) ? n : null;
+  }, z.number().int().min(min).max(max).nullable());
 
 const optionalDate = () =>
   z.preprocess(
@@ -65,11 +62,7 @@ export const jobPostingFormSchema = z
     ),
     compensationMin: optionalInt(0, 1_000_000),
     compensationMax: optionalInt(0, 1_000_000),
-    description: z
-      .string()
-      .trim()
-      .min(1, "Description is required.")
-      .max(8000),
+    description: z.string().trim().min(1, "Description is required.").max(8000),
     responsibilities: optionalText(4000),
     qualifications: optionalText(4000),
     applicationDeadline: optionalDate(),

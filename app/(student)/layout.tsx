@@ -35,10 +35,16 @@ export default async function StudentRouteLayout({
             <Link className="hover:text-foreground" href="/student/dashboard">
               Dashboard
             </Link>
-            <Link className="hover:text-foreground" href="/student/applications">
+            <Link
+              className="hover:text-foreground"
+              href="/student/applications"
+            >
               Applications
             </Link>
-            <Link className="hover:text-foreground" href="/student/saved-job-postings">
+            <Link
+              className="hover:text-foreground"
+              href="/student/saved-job-postings"
+            >
               Saved
             </Link>
             <Link

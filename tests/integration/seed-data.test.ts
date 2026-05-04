@@ -159,8 +159,7 @@ describe.skipIf(skip)("seed data: row counts and core relations", () => {
       select: { createdAt: true, publishedAt: true, slug: true },
     });
     for (const jp of inverted) {
-      const delta =
-        jp.publishedAt!.getTime() - jp.createdAt.getTime();
+      const delta = jp.publishedAt!.getTime() - jp.createdAt.getTime();
       expect(delta).toBeGreaterThan(-TOLERANCE_MS);
     }
   });

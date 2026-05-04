@@ -170,19 +170,22 @@ async function assertOwnsChild(
       where: { id: childId },
       select: { studentProfileId: true },
     });
-    if (!row || row.studentProfileId !== profile.id) throw new Error("forbidden");
+    if (!row || row.studentProfileId !== profile.id)
+      throw new Error("forbidden");
   } else if (entity === "experience") {
     const row = await prisma.studentExperience.findUnique({
       where: { id: childId },
       select: { studentProfileId: true },
     });
-    if (!row || row.studentProfileId !== profile.id) throw new Error("forbidden");
+    if (!row || row.studentProfileId !== profile.id)
+      throw new Error("forbidden");
   } else {
     const row = await prisma.studentProject.findUnique({
       where: { id: childId },
       select: { studentProfileId: true },
     });
-    if (!row || row.studentProfileId !== profile.id) throw new Error("forbidden");
+    if (!row || row.studentProfileId !== profile.id)
+      throw new Error("forbidden");
   }
 
   return profile.id;

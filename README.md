@@ -87,13 +87,13 @@ The seed is **idempotent**: re-running upserts and never duplicates. It creates 
 
 All seeded users share the password **`Password123!`**.
 
-| Role                  | Email                      |
-| --------------------- | -------------------------- |
-| Admin                 | `admin@example.test`       |
-| Company (APPROVED)    | `acme@example.test`        |
-| Company (PENDING)     | `globex@example.test`      |
-| Company (SUSPENDED)   | `initech@example.test`     |
-| Student `01` … `10`   | `studentNN@example.test`   |
+| Role                | Email                    |
+| ------------------- | ------------------------ |
+| Admin               | `admin@example.test`     |
+| Company (APPROVED)  | `acme@example.test`      |
+| Company (PENDING)   | `globex@example.test`    |
+| Company (SUSPENDED) | `initech@example.test`   |
+| Student `01` … `10` | `studentNN@example.test` |
 
 ## Local fallback behavior
 
@@ -149,23 +149,23 @@ Key boundary rules (enforced by code review, not lint):
 
 ## Common scripts
 
-| Command                       | What it does                                       |
-| ----------------------------- | -------------------------------------------------- |
-| `npm run dev`                 | Start Next.js dev server                           |
-| `npm run build` / `start`     | Production build / start                           |
-| `npm run lint`                | ESLint                                             |
-| `npm run typecheck`           | `tsc --noEmit`                                     |
-| `npm run format` / `format:check` | Prettier                                       |
-| `npm run test`                | Vitest (unit + integration)                        |
-| `npm run test:unit`           | Vitest unit suite only                             |
-| `npm run test:integration`    | Vitest integration suite (hits the database)       |
-| `npm run test:e2e`            | Playwright end-to-end (requires the dev server)    |
-| `npm run test:e2e:ui`         | Playwright UI mode for debugging                   |
-| `npm run db:generate`         | Generate Prisma client                             |
-| `npm run db:migrate`          | Apply schema migrations (dev — `migrate dev`)      |
-| `npm run db:migrate:deploy`   | Apply migrations (CI/production — `migrate deploy`) |
-| `npm run db:seed`             | Seed development data                              |
-| `npm run db:studio`           | Open Prisma Studio                                 |
+| Command                           | What it does                                        |
+| --------------------------------- | --------------------------------------------------- |
+| `npm run dev`                     | Start Next.js dev server                            |
+| `npm run build` / `start`         | Production build / start                            |
+| `npm run lint`                    | ESLint                                              |
+| `npm run typecheck`               | `tsc --noEmit`                                      |
+| `npm run format` / `format:check` | Prettier                                            |
+| `npm run test`                    | Vitest (unit + integration)                         |
+| `npm run test:unit`               | Vitest unit suite only                              |
+| `npm run test:integration`        | Vitest integration suite (hits the database)        |
+| `npm run test:e2e`                | Playwright end-to-end (requires the dev server)     |
+| `npm run test:e2e:ui`             | Playwright UI mode for debugging                    |
+| `npm run db:generate`             | Generate Prisma client                              |
+| `npm run db:migrate`              | Apply schema migrations (dev — `migrate dev`)       |
+| `npm run db:migrate:deploy`       | Apply migrations (CI/production — `migrate deploy`) |
+| `npm run db:seed`                 | Seed development data                               |
+| `npm run db:studio`               | Open Prisma Studio                                  |
 
 ## Testing notes
 

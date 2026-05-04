@@ -60,9 +60,7 @@ test("admin can open every management table", async ({ page }) => {
   await expect(page.getByLabel(/^Status$/)).toBeVisible();
 
   await page.goto("/admin/students");
-  await expect(
-    page.getByRole("heading", { name: /^Students$/ }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Students$/ })).toBeVisible();
   await expect(page.getByLabel(/^Profile$/)).toBeVisible();
 
   await page.goto("/admin/applications");

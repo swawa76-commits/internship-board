@@ -22,9 +22,7 @@ test("a PENDING company is blocked from Publish but can save a draft", async ({
   await page.goto("/company/jobs/new");
 
   // Inline approval banner is visible.
-  await expect(
-    page.getByText(/Your company is currently/i),
-  ).toBeVisible();
+  await expect(page.getByText(/Your company is currently/i)).toBeVisible();
 
   // Fill the required fields and try to publish.
   await page.getByLabel(/^Title/).fill(uniqueTitle);

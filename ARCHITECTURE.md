@@ -5,6 +5,7 @@
 This document defines how the application should be structured so the codebase stays maintainable as features are added.
 
 The goal is to keep:
+
 - business logic out of UI components
 - authorization enforced on the server
 - Prisma queries centralized and predictable
@@ -18,7 +19,9 @@ This is a V1 architecture for a small team. Prefer simple, boring patterns over 
 ## Core architectural principles
 
 ### 1. Keep UI, business logic, and data access separate
+
 Do not mix:
+
 - React rendering
 - permission logic
 - Prisma queries
@@ -27,14 +30,18 @@ Do not mix:
 Each should live in a clear layer.
 
 ### 2. Server is the source of truth
+
 Never trust client-side role or approval checks.
 All authorization and approval rules must be enforced server-side.
 
 ### 3. Prefer feature-oriented organization with shared infrastructure
+
 Organize most code by feature domain, while keeping shared infrastructure in common folders.
 
 ### 4. Keep routes thin
+
 Pages, layouts, route handlers, and server actions should mostly:
+
 - parse input
 - call services
 - return UI or response data
@@ -42,13 +49,16 @@ Pages, layouts, route handlers, and server actions should mostly:
 Do not put complex business logic directly in route files.
 
 ### 5. External services must be replaceable
+
 Email, file storage, and similar integrations must go through adapters so local development and production can use different implementations.
 
 ### 6. Avoid premature abstraction
+
 Create reusable helpers when patterns repeat.
 Do not invent complex generic frameworks for a V1 product.
 
 ### 7. Folder responsibilities
+
 The repo uses a clear separation between feature-facing code and backend logic.
 
 - `/features` contains domain-specific frontend and feature-facing glue code
@@ -115,3 +125,4 @@ Route handlers and server actions in `/app` or `/features` must call `/server/se
 /public
 
 /scripts
+```

@@ -33,18 +33,27 @@ export function StudentOnboardingWelcome({
 
       <ul className="space-y-2 text-sm text-muted-foreground">
         <li className="flex items-start gap-2">
-          <span aria-hidden className="mt-1 block size-1.5 rounded-full bg-foreground" />
+          <span
+            aria-hidden
+            className="mt-1 block size-1.5 rounded-full bg-foreground"
+          />
           {hasProfile
             ? "Pick up where you left off and finish the remaining sections."
             : "Tell us a little about yourself — name, school, and what you're studying."}
         </li>
         <li className="flex items-start gap-2">
-          <span aria-hidden className="mt-1 block size-1.5 rounded-full bg-foreground" />
-          Add the skills, experiences, and projects you&apos;d like companies
-          to see.
+          <span
+            aria-hidden
+            className="mt-1 block size-1.5 rounded-full bg-foreground"
+          />
+          Add the skills, experiences, and projects you&apos;d like companies to
+          see.
         </li>
         <li className="flex items-start gap-2">
-          <span aria-hidden className="mt-1 block size-1.5 rounded-full bg-foreground" />
+          <span
+            aria-hidden
+            className="mt-1 block size-1.5 rounded-full bg-foreground"
+          />
           Upload your resume so we can attach it to applications.
         </li>
       </ul>

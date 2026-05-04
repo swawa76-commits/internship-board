@@ -25,7 +25,9 @@ test("incomplete student is told to finish profile rather than seeing the form",
 }) => {
   await signInAs(page, "student08@example.test", PASSWORD);
   await page.goto("/companies/acme-robotics/jobs/robotics-controls-intern");
-  await expect(page.getByText(/Finish your profile before applying/i)).toBeVisible();
+  await expect(
+    page.getByText(/Finish your profile before applying/i),
+  ).toBeVisible();
   await expect(
     page.getByRole("link", { name: /open your profile/i }),
   ).toBeVisible();
@@ -76,9 +78,7 @@ test("company applications board shows applicants for the company's postings", a
   ).toBeVisible();
   // Acme has multiple seeded applications across statuses; we expect
   // at least the "In review" group header to render.
-  await expect(
-    page.getByRole("heading", { name: /^In review/ }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^In review/ })).toBeVisible();
 });
 
 /**
@@ -89,17 +89,13 @@ test("company applications board shows applicants for the company's postings", a
  * end. The seed is idempotent, but cleanup keeps the dataset stable
  * for any subsequent run that doesn't re-seed first.
  */
-test("company can move an APPLIED applicant to IN_REVIEW", async ({
-  page,
-}) => {
+test("company can move an APPLIED applicant to IN_REVIEW", async ({ page }) => {
   await signInAs(page, "acme@example.test", PASSWORD);
   await page.goto("/company/applications");
 
   // The seeded student01/robotics-controls-intern application starts at
   // APPLIED. Find that article (locating by the unique applicant name).
-  const article = page
-    .locator("article")
-    .filter({ hasText: "Student 1 Test" });
+  const article = page.locator("article").filter({ hasText: "Student 1 Test" });
   // Only act if the row is currently APPLIED — the seed places it there
   // but a previous test run might have moved it.
   const newBadge = article.getByText("APPLIED", { exact: true });

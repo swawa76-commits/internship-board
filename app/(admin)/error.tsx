@@ -25,8 +25,7 @@ export default function AdminError({
           We couldn&apos;t load that page
         </h1>
         <p className="text-sm text-muted-foreground">
-          Check the server log for details. The previous admin state is
-          intact.
+          Check the server log for details. The previous admin state is intact.
         </p>
         <div className="flex justify-center gap-3">
           <Button onClick={reset} size="sm">

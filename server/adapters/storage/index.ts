@@ -5,7 +5,12 @@ import { NoopStorageAdapter } from "./noop-adapter";
 import { S3StorageAdapter } from "./s3-adapter";
 import type { StorageAdapter } from "./storage-adapter";
 
-export type { StorageAdapter, PutInput, PutResult, ReadResult } from "./storage-adapter";
+export type {
+  StorageAdapter,
+  PutInput,
+  PutResult,
+  ReadResult,
+} from "./storage-adapter";
 export { LocalFsStorageAdapter, NoopStorageAdapter, S3StorageAdapter };
 
 /**

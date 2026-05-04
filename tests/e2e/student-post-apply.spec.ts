@@ -66,9 +66,10 @@ test("a fresh student completes profile then exercises save/apply/withdraw", asy
     savedCard.getByRole("button", { name: /^saved$/i }).click(),
   ]);
   await page.goto("/student/saved-job-postings");
-  await expect(
-    page.locator("li").filter({ hasText: jobTitle }),
-  ).toHaveCount(0, { timeout: 10_000 });
+  await expect(page.locator("li").filter({ hasText: jobTitle })).toHaveCount(
+    0,
+    { timeout: 10_000 },
+  );
 
   // Apply to a different posting so the Withdraw flow has a fresh row.
   await page.goto("/jobs");
@@ -107,7 +108,9 @@ test("a fresh student completes profile then exercises save/apply/withdraw", asy
 
   // Post-withdraw: the same row's status pill should now read
   // "Withdrawn" and the Withdraw button must no longer appear.
-  await expect(page.getByText("Withdrawn", { exact: true }).first()).toBeVisible({
+  await expect(
+    page.getByText("Withdrawn", { exact: true }).first(),
+  ).toBeVisible({
     timeout: 10_000,
   });
 

@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  activeOnly,
-  softDeletedOnly,
-  withActive,
-} from "@/lib/db/soft-delete";
+import { activeOnly, softDeletedOnly, withActive } from "@/lib/db/soft-delete";
 
 describe("soft-delete helpers", () => {
   it("activeOnly matches non-soft-deleted rows", () => {

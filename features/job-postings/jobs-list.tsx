@@ -11,7 +11,10 @@ type Status = JobPostingListItem["status"];
 
 const TRANSITIONS_BY_STATUS: Record<
   Status,
-  Array<{ target: "PUBLISHED" | "PAUSED" | "CLOSED" | "ARCHIVED"; label: string }>
+  Array<{
+    target: "PUBLISHED" | "PAUSED" | "CLOSED" | "ARCHIVED";
+    label: string;
+  }>
 > = {
   DRAFT: [],
   PUBLISHED: [
@@ -54,10 +57,7 @@ export function JobsList({ rows }: { rows: JobPostingListItem[] }) {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr
-              key={row.id}
-              className="border-b border-border last:border-b-0"
-            >
+            <tr key={row.id} className="border-b border-border last:border-b-0">
               <td className="px-3 py-3 align-top">
                 <p className="font-medium">{row.title}</p>
                 <p className="text-xs text-muted-foreground">/{row.slug}</p>
@@ -83,10 +83,7 @@ export function JobsList({ rows }: { rows: JobPostingListItem[] }) {
                     <Link href={`/company/jobs/${row.id}/edit`}>Edit</Link>
                   </Button>
                   {TRANSITIONS_BY_STATUS[row.status].map((t) => (
-                    <form
-                      key={t.target}
-                      action={transitionJobPostingAction}
-                    >
+                    <form key={t.target} action={transitionJobPostingAction}>
                       <input type="hidden" name="id" value={row.id} />
                       <input type="hidden" name="target" value={t.target} />
                       <Button

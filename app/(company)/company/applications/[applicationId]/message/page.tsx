@@ -75,13 +75,10 @@ export default async function StartThreadPage({
       </header>
       <section className="mx-auto w-full max-w-3xl rounded-md border border-border bg-card p-5">
         {closed ? (
-          <p
-            role="status"
-            className="text-sm text-muted-foreground"
-          >
+          <p role="status" className="text-sm text-muted-foreground">
             This application is{" "}
-            <span className="font-mono text-xs">{application.status}</span>{" "}
-            — chat is closed and no new threads can be started.
+            <span className="font-mono text-xs">{application.status}</span> —
+            chat is closed and no new threads can be started.
           </p>
         ) : (
           <StartThreadForm applicationId={application.id} />

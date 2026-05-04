@@ -63,8 +63,10 @@ export default async function StudentThreadPage({
             className="rounded-md border border-dashed border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
           >
             Chat closed — this application is{" "}
-            <span className="font-mono text-xs">{thread.applicationStatus}</span>.
-            You can still read the conversation, but no new replies are
+            <span className="font-mono text-xs">
+              {thread.applicationStatus}
+            </span>
+            . You can still read the conversation, but no new replies are
             accepted.
           </p>
         ) : thread.canReply ? (

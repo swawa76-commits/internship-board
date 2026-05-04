@@ -13,11 +13,7 @@ import {
 
 const initial: ProfileFormState = { status: "idle" };
 
-export function ResumeSection({
-  currentKey,
-}: {
-  currentKey: string | null;
-}) {
+export function ResumeSection({ currentKey }: { currentKey: string | null }) {
   const [state, formAction, pending] = useActionState(
     uploadResumeAction,
     initial,

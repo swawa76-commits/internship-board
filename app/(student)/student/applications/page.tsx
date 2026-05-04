@@ -33,7 +33,10 @@ export default async function StudentApplicationsPage() {
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {applications.length}{" "}
-          {applications.length === 1 ? "submitted application" : "submitted applications"}.
+          {applications.length === 1
+            ? "submitted application"
+            : "submitted applications"}
+          .
         </p>
       </header>
 
@@ -77,7 +80,12 @@ export default async function StudentApplicationsPage() {
                             bypass set so we render plain text there. */}
                         {a.jobPosting.status === "PUBLISHED" ||
                         (
-                          ["APPLIED", "IN_REVIEW", "INTERVIEWING", "OFFER"] as ReadonlyArray<string>
+                          [
+                            "APPLIED",
+                            "IN_REVIEW",
+                            "INTERVIEWING",
+                            "OFFER",
+                          ] as ReadonlyArray<string>
                         ).includes(a.status) ? (
                           <Link
                             className="hover:underline"
@@ -106,9 +114,9 @@ export default async function StudentApplicationsPage() {
                       })}
                     </td>
                     <td className="px-3 py-3 align-top text-right">
-                      {(ACTIVE_APPLICATION_STATUSES as ReadonlyArray<string>).includes(
-                        a.status,
-                      ) ? (
+                      {(
+                        ACTIVE_APPLICATION_STATUSES as ReadonlyArray<string>
+                      ).includes(a.status) ? (
                         <form action={withdrawApplicationAction}>
                           <input
                             type="hidden"

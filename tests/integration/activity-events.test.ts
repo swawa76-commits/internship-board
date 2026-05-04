@@ -294,14 +294,26 @@ describe.skipIf(skip)("activity triggers · applications", () => {
       }),
     ).not.toBeNull();
 
-    await transitionApplicationStatus(co.companyUserId, a.applicationId, "IN_REVIEW");
+    await transitionApplicationStatus(
+      co.companyUserId,
+      a.applicationId,
+      "IN_REVIEW",
+    );
     expect(
       await findEvent("APPLICATION_STATUS_CHANGED", a.applicationId),
     ).not.toBeNull();
 
     // Walk to OFFER then have the student withdraw — distinct event type.
-    await transitionApplicationStatus(co.companyUserId, a.applicationId, "INTERVIEWING");
-    await transitionApplicationStatus(co.companyUserId, a.applicationId, "OFFER");
+    await transitionApplicationStatus(
+      co.companyUserId,
+      a.applicationId,
+      "INTERVIEWING",
+    );
+    await transitionApplicationStatus(
+      co.companyUserId,
+      a.applicationId,
+      "OFFER",
+    );
 
     // Use a separate fresh application for WITHDRAWN since the first
     // is now at OFFER (still active).
@@ -333,9 +345,15 @@ describe.skipIf(skip)("activity triggers · messaging", () => {
     });
     if (!a.ok) throw new Error("setup");
 
-    const t = await startThreadAsCompany(co.companyUserId, a.applicationId, "Hi");
+    const t = await startThreadAsCompany(
+      co.companyUserId,
+      a.applicationId,
+      "Hi",
+    );
     if (!t.ok) throw new Error("setup");
-    expect(await findEvent("MESSAGE_THREAD_CREATED", t.threadId)).not.toBeNull();
+    expect(
+      await findEvent("MESSAGE_THREAD_CREATED", t.threadId),
+    ).not.toBeNull();
   });
 });
 
@@ -359,159 +377,177 @@ describe.skipIf(skip)("activity triggers · admin soft-deletes", () => {
     expect(await findEvent("STUDENT_SOFT_DELETED", stud)).not.toBeNull();
 
     await softDeleteJobPostingAsAdmin(admin, job.id);
-    expect(
-      await findEvent("JOB_POSTING_SOFT_DELETED", job.id),
-    ).not.toBeNull();
+    expect(await findEvent("JOB_POSTING_SOFT_DELETED", job.id)).not.toBeNull();
   });
 });
 
-describe.skipIf(skip)("admin activity listing · access control + filters", () => {
-  it("rejects non-admin callers", async () => {
-    const stud = await makeStudent("act-acl");
-    const r = await listActivityPageForAdmin(stud, {}, { page: 1, pageSize: 10 });
-    expect(r.ok).toBe(false);
-    if (r.ok) return;
-    expect(r.reason).toBe("not_admin");
-  });
-
-  it("filters by eventType and is paginated at the DB level", async () => {
-    const admin = await makeAdmin("act-filt");
-    // Generate a few new APPLICATION_SUBMITTED events tagged to this run.
-    const co = await makeCompany("act-filt", admin);
-    const job = await createJobPosting(co.companyUserId, {
-      ...POSTING_BASE,
-      title: "Filter target",
+describe.skipIf(skip)(
+  "admin activity listing · access control + filters",
+  () => {
+    it("rejects non-admin callers", async () => {
+      const stud = await makeStudent("act-acl");
+      const r = await listActivityPageForAdmin(
+        stud,
+        {},
+        { page: 1, pageSize: 10 },
+      );
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.reason).toBe("not_admin");
     });
-    if (!job.ok) throw new Error("setup");
-    for (const i of [0, 1, 2]) {
-      const s = await makeStudent(`act-filt-s${i}`);
-      const a = await submitApplication(s, {
+
+    it("filters by eventType and is paginated at the DB level", async () => {
+      const admin = await makeAdmin("act-filt");
+      // Generate a few new APPLICATION_SUBMITTED events tagged to this run.
+      const co = await makeCompany("act-filt", admin);
+      const job = await createJobPosting(co.companyUserId, {
+        ...POSTING_BASE,
+        title: "Filter target",
+      });
+      if (!job.ok) throw new Error("setup");
+      for (const i of [0, 1, 2]) {
+        const s = await makeStudent(`act-filt-s${i}`);
+        const a = await submitApplication(s, {
+          jobPostingId: job.id,
+          coverLetter: null,
+        });
+        if (!a.ok) throw new Error("setup");
+      }
+
+      const all = await listActivityPageForAdmin(
+        admin,
+        { eventType: "APPLICATION_SUBMITTED" },
+        { page: 1, pageSize: 50 },
+      );
+      if (!all.ok) throw new Error("not admin");
+      expect(
+        all.data.rows.every((r) => r.type === "APPLICATION_SUBMITTED"),
+      ).toBe(true);
+      expect(all.data.total).toBeGreaterThanOrEqual(3);
+
+      const page1 = await listActivityPageForAdmin(
+        admin,
+        { eventType: "APPLICATION_SUBMITTED" },
+        { page: 1, pageSize: 2 },
+      );
+      if (!page1.ok) throw new Error("not admin");
+      expect(page1.data.rows.length).toBe(2);
+
+      const page2 = await listActivityPageForAdmin(
+        admin,
+        { eventType: "APPLICATION_SUBMITTED" },
+        { page: 2, pageSize: 2 },
+      );
+      if (!page2.ok) throw new Error("not admin");
+      const ids1 = new Set(page1.data.rows.map((r) => r.id));
+      for (const r of page2.data.rows) expect(ids1.has(r.id)).toBe(false);
+    });
+
+    it("free-text q matches metadataJson contents (e.g. 'OFFER' on status change)", async () => {
+      const admin = await makeAdmin("act-meta");
+      const co = await makeCompany("act-meta", admin);
+      const stud = await makeStudent("act-meta");
+      const job = await createJobPosting(co.companyUserId, {
+        ...POSTING_BASE,
+        title: "Meta search",
+      });
+      if (!job.ok) throw new Error("setup");
+      const a = await submitApplication(stud, {
         jobPostingId: job.id,
         coverLetter: null,
       });
       if (!a.ok) throw new Error("setup");
-    }
+      await transitionApplicationStatus(
+        co.companyUserId,
+        a.applicationId,
+        "IN_REVIEW",
+      );
+      await transitionApplicationStatus(
+        co.companyUserId,
+        a.applicationId,
+        "INTERVIEWING",
+      );
+      await transitionApplicationStatus(
+        co.companyUserId,
+        a.applicationId,
+        "OFFER",
+      );
 
-    const all = await listActivityPageForAdmin(
-      admin,
-      { eventType: "APPLICATION_SUBMITTED" },
-      { page: 1, pageSize: 50 },
-    );
-    if (!all.ok) throw new Error("not admin");
-    expect(all.data.rows.every((r) => r.type === "APPLICATION_SUBMITTED")).toBe(true);
-    expect(all.data.total).toBeGreaterThanOrEqual(3);
-
-    const page1 = await listActivityPageForAdmin(
-      admin,
-      { eventType: "APPLICATION_SUBMITTED" },
-      { page: 1, pageSize: 2 },
-    );
-    if (!page1.ok) throw new Error("not admin");
-    expect(page1.data.rows.length).toBe(2);
-
-    const page2 = await listActivityPageForAdmin(
-      admin,
-      { eventType: "APPLICATION_SUBMITTED" },
-      { page: 2, pageSize: 2 },
-    );
-    if (!page2.ok) throw new Error("not admin");
-    const ids1 = new Set(page1.data.rows.map((r) => r.id));
-    for (const r of page2.data.rows) expect(ids1.has(r.id)).toBe(false);
-  });
-
-  it("free-text q matches metadataJson contents (e.g. 'OFFER' on status change)", async () => {
-    const admin = await makeAdmin("act-meta");
-    const co = await makeCompany("act-meta", admin);
-    const stud = await makeStudent("act-meta");
-    const job = await createJobPosting(co.companyUserId, {
-      ...POSTING_BASE,
-      title: "Meta search",
+      // Search for OFFER — must surface the APPLICATION_STATUS_CHANGED
+      // row whose metadata recorded `{ from: 'INTERVIEWING', to: 'OFFER' }`.
+      const r = await listActivityPageForAdmin(
+        admin,
+        { q: "OFFER", entityId: a.applicationId },
+        { page: 1, pageSize: 50 },
+      );
+      if (!r.ok) throw new Error("not admin");
+      expect(
+        r.data.rows.some(
+          (e) =>
+            e.type === "APPLICATION_STATUS_CHANGED" &&
+            JSON.stringify(e.metadataJson).includes("OFFER"),
+        ),
+      ).toBe(true);
     });
-    if (!job.ok) throw new Error("setup");
-    const a = await submitApplication(stud, {
-      jobPostingId: job.id,
-      coverLetter: null,
+
+    it("programTag filter surfaces events about an affected entity even when actor has no tag", async () => {
+      const admin = await makeAdmin("act-tag");
+      const tag = `${RUN_ID}-cohortTag`;
+
+      // Tagged student created, then admin (untagged) soft-deletes them.
+      const stud = await makeStudent("act-tag-stud");
+      const profile = await prisma.studentProfile.findUniqueOrThrow({
+        where: { userId: stud },
+        select: { id: true },
+      });
+      await prisma.studentProfile.update({
+        where: { id: profile.id },
+        data: { programTag: tag },
+      });
+      await softDeleteStudentAsAdmin(admin, stud);
+
+      const r = await listActivityPageForAdmin(
+        admin,
+        { programTag: tag, eventType: "STUDENT_SOFT_DELETED" },
+        { page: 1, pageSize: 50 },
+      );
+      if (!r.ok) throw new Error("not admin");
+      expect(
+        r.data.rows.some(
+          (e) => e.type === "STUDENT_SOFT_DELETED" && e.entityId === stud,
+        ),
+      ).toBe(true);
     });
-    if (!a.ok) throw new Error("setup");
-    await transitionApplicationStatus(co.companyUserId, a.applicationId, "IN_REVIEW");
-    await transitionApplicationStatus(co.companyUserId, a.applicationId, "INTERVIEWING");
-    await transitionApplicationStatus(co.companyUserId, a.applicationId, "OFFER");
 
-    // Search for OFFER — must surface the APPLICATION_STATUS_CHANGED
-    // row whose metadata recorded `{ from: 'INTERVIEWING', to: 'OFFER' }`.
-    const r = await listActivityPageForAdmin(
-      admin,
-      { q: "OFFER", entityId: a.applicationId },
-      { page: 1, pageSize: 50 },
-    );
-    if (!r.ok) throw new Error("not admin");
-    expect(
-      r.data.rows.some(
-        (e) =>
-          e.type === "APPLICATION_STATUS_CHANGED" &&
-          JSON.stringify(e.metadataJson).includes("OFFER"),
-      ),
-    ).toBe(true);
-  });
+    it("filters by entityType + entityId", async () => {
+      const admin = await makeAdmin("act-entity");
+      const co = await makeCompany("act-entity", admin);
+      const job = await createJobPosting(co.companyUserId, {
+        ...POSTING_BASE,
+        title: "Entity filter",
+      });
+      if (!job.ok) throw new Error("setup");
 
-  it("programTag filter surfaces events about an affected entity even when actor has no tag", async () => {
-    const admin = await makeAdmin("act-tag");
-    const tag = `${RUN_ID}-cohortTag`;
-
-    // Tagged student created, then admin (untagged) soft-deletes them.
-    const stud = await makeStudent("act-tag-stud");
-    const profile = await prisma.studentProfile.findUniqueOrThrow({
-      where: { userId: stud },
-      select: { id: true },
+      const r = await listActivityPageForAdmin(
+        admin,
+        { entityType: "JobPosting", entityId: job.id },
+        { page: 1, pageSize: 50 },
+      );
+      if (!r.ok) throw new Error("not admin");
+      expect(r.data.rows.length).toBeGreaterThanOrEqual(2);
+      expect(
+        r.data.rows.every(
+          (e) => e.entityType === "JobPosting" && e.entityId === job.id,
+        ),
+      ).toBe(true);
     });
-    await prisma.studentProfile.update({
-      where: { id: profile.id },
-      data: { programTag: tag },
-    });
-    await softDeleteStudentAsAdmin(admin, stud);
-
-    const r = await listActivityPageForAdmin(
-      admin,
-      { programTag: tag, eventType: "STUDENT_SOFT_DELETED" },
-      { page: 1, pageSize: 50 },
-    );
-    if (!r.ok) throw new Error("not admin");
-    expect(
-      r.data.rows.some(
-        (e) => e.type === "STUDENT_SOFT_DELETED" && e.entityId === stud,
-      ),
-    ).toBe(true);
-  });
-
-  it("filters by entityType + entityId", async () => {
-    const admin = await makeAdmin("act-entity");
-    const co = await makeCompany("act-entity", admin);
-    const job = await createJobPosting(co.companyUserId, {
-      ...POSTING_BASE,
-      title: "Entity filter",
-    });
-    if (!job.ok) throw new Error("setup");
-
-    const r = await listActivityPageForAdmin(
-      admin,
-      { entityType: "JobPosting", entityId: job.id },
-      { page: 1, pageSize: 50 },
-    );
-    if (!r.ok) throw new Error("not admin");
-    expect(r.data.rows.length).toBeGreaterThanOrEqual(2);
-    expect(
-      r.data.rows.every(
-        (e) => e.entityType === "JobPosting" && e.entityId === job.id,
-      ),
-    ).toBe(true);
-  });
-});
+  },
+);
 
 describe.skipIf(skip)("hotfix · soft-delete visibility downstream", () => {
   it("listApplicationsForCompany hides apps from soft-deleted students", async () => {
-    const { listApplicationsForCompany } = await import(
-      "@/server/services/application-service"
-    );
+    const { listApplicationsForCompany } =
+      await import("@/server/services/application-service");
     const admin = await makeAdmin("hotfix-del-stud");
     const co = await makeCompany("hotfix-del-stud", admin);
     const stud = await makeStudent("hotfix-del-stud");
@@ -542,9 +578,8 @@ describe.skipIf(skip)("hotfix · soft-delete visibility downstream", () => {
   });
 
   it("listThreadsForCompany hides threads tied to soft-deleted students", async () => {
-    const { listThreadsForCompany } = await import(
-      "@/server/services/message-service"
-    );
+    const { listThreadsForCompany } =
+      await import("@/server/services/message-service");
     const admin = await makeAdmin("hotfix-msg-stud");
     const co = await makeCompany("hotfix-msg-stud", admin);
     const stud = await makeStudent("hotfix-msg-stud");
@@ -581,9 +616,8 @@ describe.skipIf(skip)("hotfix · soft-delete visibility downstream", () => {
   });
 
   it("listThreadsForStudent hides threads tied to soft-deleted companies", async () => {
-    const { listThreadsForStudent } = await import(
-      "@/server/services/message-service"
-    );
+    const { listThreadsForStudent } =
+      await import("@/server/services/message-service");
     const admin = await makeAdmin("hotfix-msg-co");
     const co = await makeCompany("hotfix-msg-co", admin);
     const stud = await makeStudent("hotfix-msg-co");
@@ -605,13 +639,17 @@ describe.skipIf(skip)("hotfix · soft-delete visibility downstream", () => {
     if (!t.ok) throw new Error("setup");
 
     expect(
-      (await listThreadsForStudent(stud)).some((x) => x.threadId === t.threadId),
+      (await listThreadsForStudent(stud)).some(
+        (x) => x.threadId === t.threadId,
+      ),
     ).toBe(true);
 
     await softDeleteCompanyAsAdmin(admin, co.companyProfileId);
 
     expect(
-      (await listThreadsForStudent(stud)).some((x) => x.threadId === t.threadId),
+      (await listThreadsForStudent(stud)).some(
+        (x) => x.threadId === t.threadId,
+      ),
     ).toBe(false);
   });
 });

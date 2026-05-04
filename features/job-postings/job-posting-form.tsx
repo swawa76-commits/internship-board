@@ -54,9 +54,7 @@ export const EMPTY_JOB_POSTING_DEFAULTS: JobPostingFormDefaults = {
 
 const initial: JobPostingFormState = { status: "idle" };
 
-type Mode =
-  | { kind: "create" }
-  | { kind: "edit"; jobPostingId: string };
+type Mode = { kind: "create" } | { kind: "edit"; jobPostingId: string };
 
 export function JobPostingForm({
   mode,
@@ -96,8 +94,8 @@ export function JobPostingForm({
           role="status"
           className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm"
         >
-          Your company is currently <b>{approvalStatus}</b>. You can save
-          drafts now; publishing requires an admin to approve your account.
+          Your company is currently <b>{approvalStatus}</b>. You can save drafts
+          now; publishing requires an admin to approve your account.
         </p>
       ) : null}
 

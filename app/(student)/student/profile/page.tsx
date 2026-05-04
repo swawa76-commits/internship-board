@@ -81,8 +81,8 @@ export default async function StudentProfilePage() {
           {profile?.fullName ? `${profile.fullName}'s profile` : "Your profile"}
         </h1>
         <p className="text-muted-foreground">
-          Companies see what you put here when you apply. Save changes any
-          time — sections update independently.
+          Companies see what you put here when you apply. Save changes any time
+          — sections update independently.
         </p>
       </header>
 

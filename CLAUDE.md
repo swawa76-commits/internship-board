@@ -19,11 +19,13 @@ The product should feel clean, professional, and easy to use. V1 should be pract
 This is a marketplace for internship programs.
 
 ### Core outcomes
+
 - Companies can onboard quickly and publish internship job postings
 - Students can create strong profiles and apply to relevant opportunities
 - Program admins can track activity and intervene when needed
 
 ### V1 principles
+
 - Prioritize shipping a complete working product over advanced features
 - Choose simple, proven architecture
 - Keep workflows clear and friction low
@@ -35,7 +37,9 @@ This is a marketplace for internship programs.
 ## User Roles
 
 ## 1. Student
+
 A student can:
+
 - Sign up and log in
 - Create and edit a student profile
 - Upload a resume
@@ -46,7 +50,9 @@ A student can:
 - Reply to companies only after a company has initiated a message thread
 
 ## 2. Company
+
 A company user can:
+
 - Sign up and log in
 - Create and edit a company profile
 - Publish and manage internship job postings
@@ -56,7 +62,9 @@ A company user can:
 - Initiate and manage message threads with applicants tied to their own job postings
 
 ## 3. Admin
+
 An admin can:
+
 - Access the admin dashboard
 - View students, companies, job postings, applications, and messages
 - Approve, suspend, or soft-delete companies if moderation is enabled
@@ -69,6 +77,7 @@ An admin can:
 ## V1 Scope
 
 ## Student features
+
 - Authentication
 - Student profile creation and editing
 - Resume upload
@@ -81,6 +90,7 @@ An admin can:
 - Reply in message threads initiated by companies
 
 ## Company features
+
 - Authentication
 - Company profile creation and editing
 - Create, edit, publish, pause, close, and archive job postings
@@ -90,6 +100,7 @@ An admin can:
 - Initiate messaging with applicants
 
 ## Admin features
+
 - Admin dashboard with key marketplace metrics
 - View companies, students, job postings, and applications
 - Company approval workflow if enabled
@@ -102,6 +113,7 @@ An admin can:
 ## Non-Goals for V1
 
 Do not build these in the first version:
+
 - Full ATS replacement
 - Payroll or internship tracking after placement
 - Video interviewing
@@ -118,6 +130,7 @@ Do not build these in the first version:
 Use a TypeScript-first stack with fast developer velocity.
 
 ### Frontend
+
 - Next.js
 - React
 - TypeScript
@@ -125,39 +138,47 @@ Use a TypeScript-first stack with fast developer velocity.
 - shadcn/ui for core UI patterns
 
 ### Frontend architecture requirement
+
 - Use **Next.js App Router** with the `/app` directory
 - Do not mix App Router and Pages Router patterns
 
 ### Backend
+
 - Next.js App Router
 - Route Handlers and server-side actions where appropriate
 - Clear service layer for business logic
 - Zod for validation
 
 ### Database
+
 - PostgreSQL
 - Prisma ORM
 
 ### Auth
+
 Use one of:
+
 - NextAuth
 - Clerk
 
 Choose one and implement it cleanly. Do not mix multiple auth systems.
 
 ### Auth session requirements
+
 - Configure the auth system to securely include the user's `id` and `role` in the session or token
 - Include company `approvalStatus` in the session only if the auth system supports safe refresh or revalidation
 - Do not rely on possibly stale session data for sensitive actions like job posting publication
 - For sensitive publish or approval-gated actions, verify the current approval state server-side against the database
 
 ### Storage
+
 - Prefer a low-friction storage provider such as Vercel Blob or Supabase Storage
 - S3-compatible storage is acceptable if implemented cleanly
 - Store stable object keys or paths in the database, not expiring signed URLs
 - Generate signed URLs only at read time for authorized users
 
 ### Deployment
+
 - Vercel for app hosting
 - Managed PostgreSQL
 - Environment variables documented in `.env.example`
@@ -171,6 +192,7 @@ Choose one and implement it cleanly. Do not mix multiple auth systems.
   - what to do if a deployment or migration fails
 
 ### Messaging
+
 - Store messages in the database
 - Realtime is optional
 - Prefer simple async messaging in V1
@@ -182,6 +204,7 @@ Choose one and implement it cleanly. Do not mix multiple auth systems.
 ## Authentication and onboarding
 
 ### Requirements
+
 - Email/password auth
 - Password reset
 - Email verification preferred
@@ -190,6 +213,7 @@ Choose one and implement it cleanly. Do not mix multiple auth systems.
 - Redirect users into the correct dashboard after login
 
 ### Onboarding goals
+
 - New students should quickly reach a usable profile
 - New companies should quickly reach a publishable draft job posting
 - Empty states should guide users clearly
@@ -201,12 +225,15 @@ Choose one and implement it cleanly. Do not mix multiple auth systems.
 If moderation is enabled, newly registered companies start in `PENDING`.
 
 ### Company approval statuses
+
 Use:
+
 - `PENDING`
 - `APPROVED`
 - `SUSPENDED`
 
 ### Rules
+
 - A company in `PENDING` can create and edit its profile
 - A company in `PENDING` can create and edit draft job postings
 - Job postings belonging to a `PENDING` company are not publicly visible to students
@@ -221,6 +248,7 @@ If moderation is not enabled, companies may default to `APPROVED`.
 ## Student experience
 
 ### Student profile fields
+
 - Full name
 - Headline
 - University
@@ -240,6 +268,7 @@ If moderation is not enabled, companies may default to `APPROVED`.
 - Program tag
 
 ### Student profile behavior
+
 - Show profile completeness
 - Encourage required fields before application
 - Permit later edits
@@ -247,7 +276,9 @@ If moderation is not enabled, companies may default to `APPROVED`.
 - Resume access should use generated signed URLs at read time when storage requires it
 
 ### Student job posting browsing
+
 Support:
+
 - Keyword search
 - Filter by location
 - Filter by remote / hybrid / onsite
@@ -257,6 +288,7 @@ Support:
 - Filter by program tag if useful for admins or segmented program views
 
 ### Student application flow
+
 - Student opens a job posting detail page
 - Student reviews role and company details
 - Student applies using profile data
@@ -265,7 +297,9 @@ Support:
 - Student sees confirmation and application status
 
 ### Student application statuses
+
 Use these statuses:
+
 - Applied
 - In Review
 - Interviewing
@@ -274,6 +308,7 @@ Use these statuses:
 - Withdrawn
 
 ### Student messaging rule
+
 - Students may not initiate free-form message threads with companies
 - Students may reply only after a company has initiated a message thread tied to an existing application
 - The cover letter is the student's only initial free-form text at application time
@@ -283,6 +318,7 @@ Use these statuses:
 ## Company experience
 
 ### Company profile fields
+
 - Company name
 - Slug
 - Logo storage key
@@ -297,6 +333,7 @@ Use these statuses:
 - Program tag
 
 ### Job posting fields
+
 - Title
 - Department or team
 - Location
@@ -315,7 +352,9 @@ Use these statuses:
 - Program tag
 
 ### Job posting status values
+
 Use:
+
 - Draft
 - Published
 - Paused
@@ -323,6 +362,7 @@ Use:
 - Archived
 
 ### Company flow
+
 1. Sign up
 2. Create company profile
 3. Create draft job posting(s)
@@ -333,7 +373,9 @@ Use:
 8. Initiate message threads with applicants when needed
 
 ### Company job posting management
+
 A company can:
+
 - Create a new job posting
 - Save as draft
 - Publish
@@ -343,7 +385,9 @@ A company can:
 - Archive
 
 ### Applicant review
+
 A company can:
+
 - View applicants per job posting
 - Open applicant profile
 - View uploaded resume
@@ -351,6 +395,7 @@ A company can:
 - Initiate messages within the message thread
 
 ### Company messaging rule
+
 A company can message only applicants who applied to one of its job postings.
 
 ---
@@ -362,7 +407,9 @@ Build a basic admin dashboard for the program administrator to understand platfo
 This should be useful on day one. It should not try to be a full analytics warehouse.
 
 ## Goals
+
 The admin should be able to answer:
+
 - How many students and companies are on the platform?
 - How many student profiles are complete?
 - How many companies are approved?
@@ -374,12 +421,15 @@ The admin should be able to answer:
 - How is activity split across program tags?
 
 ## Route
+
 - `/admin`
 
 ## Dashboard sections
 
 ### 1. Overview metrics
+
 Show top-level KPI cards for:
+
 - Total students
 - Students with completed profiles
 - Total companies
@@ -391,7 +441,9 @@ Show top-level KPI cards for:
 - Applications in last 7 days
 
 ### 2. Funnel snapshot
+
 Show a compact summary of:
+
 - Published job postings
 - Job postings with at least 1 applicant
 - Total applications
@@ -403,7 +455,9 @@ Show a compact summary of:
 This can be cards or a simple bar chart.
 
 ### 3. Operational alerts
+
 Show a "Needs Attention" section with:
+
 - Companies pending approval
 - Job postings still in draft
 - Job postings closing in the next 7 days
@@ -411,7 +465,9 @@ Show a "Needs Attention" section with:
 - Flagged items if moderation is enabled
 
 ### 4. Recent activity feed
+
 Show the latest activity such as:
+
 - New company sign-up
 - New student sign-up
 - New job posting published
@@ -422,7 +478,9 @@ Show the latest activity such as:
 Limit to the most recent 20 events.
 
 ### 5. Top performing job postings
+
 Show a compact table with:
+
 - Job posting title
 - Company
 - Published date
@@ -433,7 +491,9 @@ Show a compact table with:
 Sort by highest application count.
 
 ### 6. Company participation table
+
 Show:
+
 - Company name
 - Approval status
 - Number of open job postings
@@ -442,7 +502,9 @@ Show:
 - Program tag
 
 ### 7. Program tag filter
+
 Add simple filtering by:
+
 - Last 7 days
 - Last 30 days
 - Last 90 days
@@ -452,6 +514,7 @@ Add simple filtering by:
 Use filters where relevant for metrics and activity.
 
 ### Dashboard UX requirements
+
 - Clarity over density
 - First screen must be scannable
 - Responsive on laptop-sized screens
@@ -459,6 +522,7 @@ Use filters where relevant for metrics and activity.
 - Avoid advanced drill-down analytics in V1
 
 ### Access control
+
 Only admins can access dashboard routes and metrics endpoints.
 
 ---
@@ -475,6 +539,7 @@ Build supporting admin pages:
 Each page should support table views with basic filters and searchable lists where sensible.
 
 ### Admin capabilities
+
 - View all entities
 - Review pending company approvals
 - Review job postings
@@ -488,6 +553,7 @@ Each page should support table views with basic filters and searchable lists whe
 ## Routes
 
 ## Public routes
+
 - `/`
 - `/job-postings`
 - `/job-postings/[slug]`
@@ -496,6 +562,7 @@ Each page should support table views with basic filters and searchable lists whe
 - `/signup`
 
 ## Student routes
+
 - `/student/dashboard`
 - `/student/profile`
 - `/student/applications`
@@ -503,6 +570,7 @@ Each page should support table views with basic filters and searchable lists whe
 - `/student/messages`
 
 ## Company routes
+
 - `/company/dashboard`
 - `/company/profile`
 - `/company/job-postings`
@@ -513,6 +581,7 @@ Each page should support table views with basic filters and searchable lists whe
 - `/company/messages`
 
 ## Admin routes
+
 - `/admin`
 - `/admin/companies`
 - `/admin/job-postings`
@@ -526,6 +595,7 @@ Each page should support table views with basic filters and searchable lists whe
 Design a clean relational schema.
 
 ## User
+
 - id
 - email
 - password hash or auth provider fields
@@ -535,11 +605,13 @@ Design a clean relational schema.
 - updatedAt
 
 ### User uniqueness note
+
 - Ensure unique constraints for soft-deletable fields such as `email` are compatible with soft deletes
 - Prefer partial unique indexes or another safe strategy that does not block re-registration after soft deletion
 - If partial indexes are not practical in the chosen tooling, mutate archived values on soft delete to preserve uniqueness
 
 ## StudentProfile
+
 - id
 - userId
 - fullName
@@ -561,11 +633,13 @@ Design a clean relational schema.
 - updatedAt
 
 ## StudentSkill
+
 - id
 - studentProfileId
 - name
 
 ## StudentExperience
+
 - id
 - studentProfileId
 - title
@@ -575,6 +649,7 @@ Design a clean relational schema.
 - description
 
 ## StudentProject
+
 - id
 - studentProfileId
 - name
@@ -582,6 +657,7 @@ Design a clean relational schema.
 - description
 
 ## CompanyProfile
+
 - id
 - userId
 - companyName
@@ -601,11 +677,13 @@ Design a clean relational schema.
 - updatedAt
 
 ### CompanyProfile uniqueness note
+
 - Ensure unique constraints for soft-deletable fields such as `slug` are compatible with soft deletes
 - Prefer partial unique indexes or another safe strategy that does not block reuse after soft deletion
 - If partial indexes are not practical in the chosen tooling, mutate archived values on soft delete to preserve uniqueness
 
 ## JobPosting
+
 - id
 - companyProfileId
 - slug
@@ -631,12 +709,14 @@ Design a clean relational schema.
 - updatedAt
 
 ## SavedJobPosting
+
 - id
 - studentProfileId
 - jobPostingId
 - createdAt
 
 ## Application
+
 - id
 - jobPostingId
 - studentProfileId
@@ -647,6 +727,7 @@ Design a clean relational schema.
 - updatedAt
 
 ## MessageThread
+
 - id
 - applicationId
 - initiatedByUserId
@@ -654,6 +735,7 @@ Design a clean relational schema.
 - updatedAt
 
 ## Message
+
 - id
 - threadId
 - senderUserId
@@ -662,6 +744,7 @@ Design a clean relational schema.
 - createdAt
 
 ## ActivityEvent
+
 - id
 - type
 - actorUserId
@@ -671,6 +754,7 @@ Design a clean relational schema.
 - createdAt
 
 ## AdminNote
+
 - id
 - entityType
 - entityId
@@ -679,6 +763,7 @@ Design a clean relational schema.
 - createdAt
 
 Use enums for:
+
 - user role
 - company approval status
 - job posting status
@@ -691,6 +776,7 @@ Use enums for:
 ## Permissions and access rules
 
 ### Students
+
 - Can edit only their own profile
 - Can save job postings as themselves
 - Can apply only as themselves
@@ -698,16 +784,19 @@ Use enums for:
 - Can reply only inside message threads tied to their own applications and only if a company has initiated the thread
 
 ### Companies
+
 - Can edit only their own company profile
 - Can create and manage only their own job postings
 - Can view only applications for their own job postings
 - Can initiate message threads only with applicants tied to their own job postings
 
 ### Admins
+
 - Full access to admin routes and metrics
 - Broad access to records for moderation and support
 
 ### Security rule
+
 Never rely on client-side role checks alone.
 All authorization must be enforced on the server.
 
@@ -719,6 +808,7 @@ For V1, use Postgres queries and indexes.
 Do not introduce Elasticsearch or a search service.
 
 ### Job posting search support
+
 - Keyword
 - Location
 - Workplace type
@@ -728,7 +818,9 @@ Do not introduce Elasticsearch or a search service.
 - Program tag filtering where needed
 
 ### Company-side applicant filtering
+
 Keep it basic:
+
 - By application status
 - By job posting
 
@@ -739,6 +831,7 @@ Keep it basic:
 Keep messaging intentionally constrained.
 
 ### Requirements
+
 - Messages belong to a message thread tied to an application
 - A message thread exists only if an application exists
 - Students cannot cold-message companies
@@ -752,7 +845,9 @@ Keep messaging intentionally constrained.
 ## Notifications
 
 ## Email notifications
+
 Implement basic email notifications for:
+
 - Welcome email
 - Application submitted
 - New applicant received
@@ -761,11 +856,13 @@ Implement basic email notifications for:
 - Company approval decision if moderation is enabled
 
 ## Local development email behavior
+
 - For V1 local development, mock email delivery by logging structured email payloads to the server console
 - Do not block sign-up, application, messaging, or status update flows on a real SMTP or email provider
 - Real email provider integration can be enabled later through environment variables
 
 ## In-app notifications
+
 Optional for V1.
 Only add them if simple and clean.
 
@@ -774,12 +871,14 @@ Only add them if simple and clean.
 ## File uploads and local development behavior
 
 ### Requirements
+
 - Prefer a storage option with low setup friction in development
 - If storage credentials are missing in local development, provide a safe fallback such as local filesystem storage or a clearly isolated mock storage mode
 - Do not block core user flows because third-party storage credentials are missing
 - Any local fallback should be clearly separated from production behavior and documented in `README` and `DEPLOYMENT.md`
 
 ### Resume and asset access
+
 - Store object keys or paths in the database, not expiring signed URLs
 - Generate signed URLs dynamically when an authorized user requests access
 - Enforce permission checks before generating or returning access URLs
@@ -789,6 +888,7 @@ Only add them if simple and clean.
 ## API and backend requirements
 
 Create backend functionality for:
+
 - Authentication
 - Role-aware onboarding
 - Student profile CRUD
@@ -805,13 +905,16 @@ Create backend functionality for:
 - Admin list pages and moderation actions
 
 ### Validation
+
 Use Zod or equivalent validation on all inputs.
 
 ### Error handling
+
 Return structured, predictable errors.
 Handle auth failures, validation failures, and permission failures clearly.
 
 ### External service development mode
+
 - For any feature that depends on external services, support a documented local development mode that works without production credentials
 - Email, storage, and other integrations should fail gracefully in development
 - Core product flows must remain testable locally without production service accounts
@@ -821,6 +924,7 @@ Handle auth failures, validation failures, and permission failures clearly.
 ## Admin metrics queries
 
 Support backend queries for:
+
 - Count of students
 - Count of profile-complete students
 - Count of companies
@@ -843,6 +947,7 @@ Support backend queries for:
 ## UX requirements
 
 ## General UX
+
 - Clean and professional
 - Mobile responsive
 - Accessible forms and navigation
@@ -851,6 +956,7 @@ Support backend queries for:
 - Minimal clutter
 
 ## Student UX
+
 - Guided onboarding
 - Profile completeness indicator
 - Fast search and browse flow
@@ -858,6 +964,7 @@ Support backend queries for:
 - Clear applications dashboard
 
 ## Company UX
+
 - Guided profile setup
 - Clear status messaging if approval is pending
 - Job posting creation flow that is quick and obvious
@@ -866,6 +973,7 @@ Support backend queries for:
 - Dashboard showing job postings and recent applicants
 
 ## Admin UX
+
 - Operational, not flashy
 - Key signals visible immediately
 - Tables readable and searchable where appropriate
@@ -876,6 +984,7 @@ Support backend queries for:
 ## Security and privacy
 
 ### Requirements
+
 - Protect private user data
 - Resumes must not be public
 - File access must be permission-aware
@@ -886,12 +995,14 @@ Support backend queries for:
 - Follow secure upload practices
 
 ### Sensitive assets
+
 - Resume files
 - Company contact data
 - Private messages
 - Admin-only metrics and moderation data
 
 ### Deletion approach
+
 - Use `deletedAt` for soft deletion on core tables
 - Do not hard delete core records in normal admin workflows
 - Exclude soft-deleted records from normal app queries
@@ -913,6 +1024,7 @@ Support backend queries for:
 ## Analytics for V1
 
 Track these core metrics and surface the important ones in the admin dashboard:
+
 - Number of student sign-ups
 - Number of completed student profiles
 - Number of company sign-ups
@@ -936,6 +1048,7 @@ Focus on operational visibility for the program admin.
 ## Seed data
 
 Create development seed data for:
+
 - 1 admin
 - 3 companies
 - 10 students
@@ -954,6 +1067,7 @@ Seed data should make dashboards, workflows, and demos usable immediately.
 At minimum include:
 
 ### Unit tests
+
 - Validation logic
 - Permission logic
 - Application status transitions
@@ -961,6 +1075,7 @@ At minimum include:
 - Messaging access rules
 
 ### Integration tests
+
 - Student application flow
 - Company job posting publication flow
 - Company applicant review flow
@@ -970,6 +1085,7 @@ At minimum include:
 - Local development fallbacks for email and storage where practical
 
 ### End-to-end tests
+
 - Student signs up and applies
 - Company signs up and creates a draft job posting
 - Admin approves company
@@ -984,6 +1100,7 @@ At minimum include:
 ## Development phases
 
 ## Phase 1
+
 - Initialize app
 - Set up auth
 - Set up Prisma and PostgreSQL
@@ -992,6 +1109,7 @@ At minimum include:
 - Seed admin user
 
 ## Phase 2
+
 - Student onboarding and profile
 - Company onboarding and profile
 - Approval status handling
@@ -999,18 +1117,21 @@ At minimum include:
 - Company job posting CRUD
 
 ## Phase 3
+
 - Saved job postings
 - Applications
 - Company applicant review
 - Application statuses
 
 ## Phase 4
+
 - Messaging
 - Admin dashboard
 - Admin management pages
 - Activity event tracking
 
 ## Phase 5
+
 - Notifications
 - Storage integration and local fallbacks
 - Testing
@@ -1048,6 +1169,7 @@ At minimum include:
 Use a clean, modern UI with reusable patterns.
 
 ### Preferred patterns
+
 - Metric cards
 - Data tables
 - Search/filter bars
@@ -1056,6 +1178,7 @@ Use a clean, modern UI with reusable patterns.
 - Toasts or inline alerts for feedback
 
 ### Avoid
+
 - Overly dense dashboards
 - Fancy animations that slow down development
 - Massive form components with mixed responsibilities
@@ -1066,6 +1189,7 @@ Use a clean, modern UI with reusable patterns.
 ## Deliverables
 
 Claude Code should generate:
+
 - A working full-stack app
 - Clear folder structure
 - Database schema and migrations
@@ -1087,6 +1211,7 @@ Claude Code should generate:
 ## Definition of done for V1
 
 V1 is done when:
+
 - Students can sign up, complete profiles, browse job postings, save job postings, and apply
 - Companies can sign up, complete profiles, create draft job postings, get approved if moderation is enabled, publish job postings, review applicants, and initiate messages
 - Students can reply to company-initiated message threads
@@ -1123,6 +1248,7 @@ V1 is done when:
 ## How Claude should work in this repo
 
 When making changes:
+
 - Briefly explain the plan before major edits
 - Work in small, testable steps
 - Summarize what changed after each major step
@@ -1131,6 +1257,7 @@ When making changes:
 - Flag tradeoffs instead of hiding them
 
 When generating code:
+
 - Prefer complete working flows over vague stubs
 - Use realistic placeholder content where needed
 - Keep forms usable
@@ -1139,6 +1266,7 @@ When generating code:
 - If a component is required for the user flow, build the complete UI and wire it to the database
 
 When proposing follow-up improvements:
+
 - Separate must-have from nice-to-have
 - Keep recommendations grounded in fast shipping
 
@@ -1147,6 +1275,7 @@ When proposing follow-up improvements:
 ## Nice-to-have after V1
 
 Defer these until the core product works well:
+
 - AI-assisted matching
 - Resume parsing
 - Interview scheduling

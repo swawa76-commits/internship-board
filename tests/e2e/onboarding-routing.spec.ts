@@ -43,9 +43,7 @@ test.describe("Role-based landing after login", () => {
   }) => {
     await signInAs(page, "initech@example.test", PASSWORD);
     await expect(page).toHaveURL(/\/company\/dashboard$/);
-    await expect(
-      page.getByText(/Approval status: Suspended/i),
-    ).toBeVisible();
+    await expect(page.getByText(/Approval status: Suspended/i)).toBeVisible();
   });
 });
 
@@ -93,7 +91,9 @@ test.describe("Onboarding self-redirects", () => {
     await page.goto("/student/dashboard");
     await expect(page).toHaveURL(/\/student\/onboarding$/);
     await expect(
-      page.getByRole("heading", { name: /Welcome! Let's build your student profile/i }),
+      page.getByRole("heading", {
+        name: /Welcome! Let's build your student profile/i,
+      }),
     ).toBeVisible();
   });
 

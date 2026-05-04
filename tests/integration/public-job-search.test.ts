@@ -127,111 +127,121 @@ async function makePendingCo(suffix: string) {
   };
 }
 
-describe.skipIf(skip)("searchPublicJobPostings · visibility leakage guards", () => {
-  it("excludes a posting whose owning company is PENDING", async () => {
-    const co = await makePendingCo("pending-vis");
-    const created = await createJobPosting(co.userId, {
-      ...POSTING_BASE,
-      title: `Pending visibility ${RUN_ID}`,
-      description: "Should never appear publicly.",
-      status: "DRAFT", // PENDING co can't publish — we'll DRAFT and inspect
-    });
-    if (!created.ok) throw new Error("setup failed");
-
-    const visible = await searchPublicJobPostings({
-      keyword: "Pending visibility",
-    });
-    expect(visible.some((r) => r.id === created.id)).toBe(false);
-  });
-
-  it("excludes a posting whose owning company is SUSPENDED", async () => {
-    const co = await makeApprovedCo("suspend-vis");
-    const created = await createJobPosting(co.userId, {
-      ...POSTING_BASE,
-      title: `Suspended visibility ${RUN_ID}`,
-      description: "Body for suspended-co posting.",
-    });
-    if (!created.ok) throw new Error("setup failed");
-
-    // Visible while APPROVED.
-    let visible = await searchPublicJobPostings({
-      keyword: "Suspended visibility",
-    });
-    expect(visible.some((r) => r.id === created.id)).toBe(true);
-
-    // Suspend — the same posting must drop out.
-    await setCompanyApprovalStatus(co.adminId, co.companyProfileId, "SUSPENDED");
-    visible = await searchPublicJobPostings({
-      keyword: "Suspended visibility",
-    });
-    expect(visible.some((r) => r.id === created.id)).toBe(false);
-  });
-
-  it("excludes DRAFT, PAUSED, CLOSED, ARCHIVED postings even from APPROVED companies", async () => {
-    const co = await makeApprovedCo("status-vis");
-    const titles: Array<{ status: "DRAFT" | "PAUSED" | "CLOSED" | "ARCHIVED"; title: string }> = [
-      { status: "DRAFT", title: `Status DRAFT ${RUN_ID}` },
-      { status: "PAUSED", title: `Status PAUSED ${RUN_ID}` },
-      { status: "CLOSED", title: `Status CLOSED ${RUN_ID}` },
-      { status: "ARCHIVED", title: `Status ARCHIVED ${RUN_ID}` },
-    ];
-    for (const t of titles) {
-      // Service won't accept ARCHIVED via the typed API — write directly.
-      await prisma.jobPosting.create({
-        data: {
-          companyProfileId: co.companyProfileId,
-          slug: `${RUN_ID}-${t.status.toLowerCase()}`,
-          title: t.title,
-          workplaceType: "REMOTE",
-          description: "x",
-          status: t.status,
-        },
+describe.skipIf(skip)(
+  "searchPublicJobPostings · visibility leakage guards",
+  () => {
+    it("excludes a posting whose owning company is PENDING", async () => {
+      const co = await makePendingCo("pending-vis");
+      const created = await createJobPosting(co.userId, {
+        ...POSTING_BASE,
+        title: `Pending visibility ${RUN_ID}`,
+        description: "Should never appear publicly.",
+        status: "DRAFT", // PENDING co can't publish — we'll DRAFT and inspect
       });
-    }
-    for (const t of titles) {
-      const visible = await searchPublicJobPostings({ keyword: t.title });
-      expect(visible).toHaveLength(0);
-    }
-  });
+      if (!created.ok) throw new Error("setup failed");
 
-  it("excludes a soft-deleted posting", async () => {
-    const co = await makeApprovedCo("soft-vis");
-    const created = await createJobPosting(co.userId, {
-      ...POSTING_BASE,
-      title: `Soft delete vis ${RUN_ID}`,
-      description: "Body.",
-    });
-    if (!created.ok) throw new Error("setup failed");
-
-    let visible = await searchPublicJobPostings({
-      keyword: "Soft delete vis",
-    });
-    expect(visible.some((r) => r.id === created.id)).toBe(true);
-
-    await softDeleteJobPosting(co.userId, created.id);
-    visible = await searchPublicJobPostings({ keyword: "Soft delete vis" });
-    expect(visible.some((r) => r.id === created.id)).toBe(false);
-  });
-
-  it("excludes postings owned by a soft-deleted company", async () => {
-    const co = await makeApprovedCo("soft-co-vis");
-    const created = await createJobPosting(co.userId, {
-      ...POSTING_BASE,
-      title: `Soft co vis ${RUN_ID}`,
-      description: "Body.",
-    });
-    if (!created.ok) throw new Error("setup failed");
-    await prisma.companyProfile.update({
-      where: { id: co.companyProfileId },
-      data: { deletedAt: new Date() },
+      const visible = await searchPublicJobPostings({
+        keyword: "Pending visibility",
+      });
+      expect(visible.some((r) => r.id === created.id)).toBe(false);
     });
 
-    const visible = await searchPublicJobPostings({
-      keyword: "Soft co vis",
+    it("excludes a posting whose owning company is SUSPENDED", async () => {
+      const co = await makeApprovedCo("suspend-vis");
+      const created = await createJobPosting(co.userId, {
+        ...POSTING_BASE,
+        title: `Suspended visibility ${RUN_ID}`,
+        description: "Body for suspended-co posting.",
+      });
+      if (!created.ok) throw new Error("setup failed");
+
+      // Visible while APPROVED.
+      let visible = await searchPublicJobPostings({
+        keyword: "Suspended visibility",
+      });
+      expect(visible.some((r) => r.id === created.id)).toBe(true);
+
+      // Suspend — the same posting must drop out.
+      await setCompanyApprovalStatus(
+        co.adminId,
+        co.companyProfileId,
+        "SUSPENDED",
+      );
+      visible = await searchPublicJobPostings({
+        keyword: "Suspended visibility",
+      });
+      expect(visible.some((r) => r.id === created.id)).toBe(false);
     });
-    expect(visible.some((r) => r.id === created.id)).toBe(false);
-  });
-});
+
+    it("excludes DRAFT, PAUSED, CLOSED, ARCHIVED postings even from APPROVED companies", async () => {
+      const co = await makeApprovedCo("status-vis");
+      const titles: Array<{
+        status: "DRAFT" | "PAUSED" | "CLOSED" | "ARCHIVED";
+        title: string;
+      }> = [
+        { status: "DRAFT", title: `Status DRAFT ${RUN_ID}` },
+        { status: "PAUSED", title: `Status PAUSED ${RUN_ID}` },
+        { status: "CLOSED", title: `Status CLOSED ${RUN_ID}` },
+        { status: "ARCHIVED", title: `Status ARCHIVED ${RUN_ID}` },
+      ];
+      for (const t of titles) {
+        // Service won't accept ARCHIVED via the typed API — write directly.
+        await prisma.jobPosting.create({
+          data: {
+            companyProfileId: co.companyProfileId,
+            slug: `${RUN_ID}-${t.status.toLowerCase()}`,
+            title: t.title,
+            workplaceType: "REMOTE",
+            description: "x",
+            status: t.status,
+          },
+        });
+      }
+      for (const t of titles) {
+        const visible = await searchPublicJobPostings({ keyword: t.title });
+        expect(visible).toHaveLength(0);
+      }
+    });
+
+    it("excludes a soft-deleted posting", async () => {
+      const co = await makeApprovedCo("soft-vis");
+      const created = await createJobPosting(co.userId, {
+        ...POSTING_BASE,
+        title: `Soft delete vis ${RUN_ID}`,
+        description: "Body.",
+      });
+      if (!created.ok) throw new Error("setup failed");
+
+      let visible = await searchPublicJobPostings({
+        keyword: "Soft delete vis",
+      });
+      expect(visible.some((r) => r.id === created.id)).toBe(true);
+
+      await softDeleteJobPosting(co.userId, created.id);
+      visible = await searchPublicJobPostings({ keyword: "Soft delete vis" });
+      expect(visible.some((r) => r.id === created.id)).toBe(false);
+    });
+
+    it("excludes postings owned by a soft-deleted company", async () => {
+      const co = await makeApprovedCo("soft-co-vis");
+      const created = await createJobPosting(co.userId, {
+        ...POSTING_BASE,
+        title: `Soft co vis ${RUN_ID}`,
+        description: "Body.",
+      });
+      if (!created.ok) throw new Error("setup failed");
+      await prisma.companyProfile.update({
+        where: { id: co.companyProfileId },
+        data: { deletedAt: new Date() },
+      });
+
+      const visible = await searchPublicJobPostings({
+        keyword: "Soft co vis",
+      });
+      expect(visible.some((r) => r.id === created.id)).toBe(false);
+    });
+  },
+);
 
 describe.skipIf(skip)("searchPublicJobPostings · filters", () => {
   it("filters by workplaceType", async () => {

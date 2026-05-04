@@ -127,8 +127,7 @@ export async function createJobPostingAction(
   if (!parsed.success) {
     return errorState(
       prev,
-      parsed.error.issues[0]?.message ??
-        "Please check the highlighted fields.",
+      parsed.error.issues[0]?.message ?? "Please check the highlighted fields.",
       formData,
     );
   }
@@ -169,17 +168,12 @@ export async function updateJobPostingAction(
   if (!parsed.success) {
     return errorState(
       prev,
-      parsed.error.issues[0]?.message ??
-        "Please check the highlighted fields.",
+      parsed.error.issues[0]?.message ?? "Please check the highlighted fields.",
       formData,
     );
   }
 
-  const result = await updateJobPosting(
-    user.id,
-    idOk.data.id,
-    parsed.data,
-  );
+  const result = await updateJobPosting(user.id, idOk.data.id, parsed.data);
   if (!result.ok) {
     if (result.reason === "publish_blocked") {
       return errorState(prev, PUBLISH_BLOCKED_MESSAGE, formData);
@@ -187,11 +181,7 @@ export async function updateJobPostingAction(
     if (result.reason === "not_found") {
       return errorState(prev, "That posting no longer exists.", formData);
     }
-    return errorState(
-      prev,
-      "You can only edit your own postings.",
-      formData,
-    );
+    return errorState(prev, "You can only edit your own postings.", formData);
   }
 
   pathnamesToRevalidate();

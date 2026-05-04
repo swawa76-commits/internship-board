@@ -16,8 +16,8 @@ export default async function CompanyMessagesPage() {
         <h1 className="text-3xl font-semibold tracking-tight">Messages</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {threads.length}{" "}
-          {threads.length === 1 ? "conversation" : "conversations"}.
-          Start a thread from any applicant on the Applicants page.
+          {threads.length === 1 ? "conversation" : "conversations"}. Start a
+          thread from any applicant on the Applicants page.
         </p>
       </header>
       <section className="mx-auto w-full max-w-4xl">

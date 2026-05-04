@@ -124,7 +124,10 @@ export default async function AdminDashboardPage({
       >
         <h2 className="text-lg font-semibold">Funnel snapshot</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-7">
-          <FunnelStep label="Published postings" value={d.funnel.publishedJobPostings} />
+          <FunnelStep
+            label="Published postings"
+            value={d.funnel.publishedJobPostings}
+          />
           <FunnelStep
             label="Postings w/ ≥1 applicant"
             value={d.funnel.jobPostingsWithAtLeastOneApplicant}
@@ -148,10 +151,7 @@ export default async function AdminDashboardPage({
             value={d.alerts.pendingCompanies}
             href="/admin/companies"
           />
-          <AlertItem
-            label="Draft postings"
-            value={d.alerts.draftJobPostings}
-          />
+          <AlertItem label="Draft postings" value={d.alerts.draftJobPostings} />
           <AlertItem
             label="Closing in 7 days"
             value={d.alerts.jobPostingsClosingIn7Days}
@@ -169,9 +169,7 @@ export default async function AdminDashboardPage({
       >
         <h2 className="text-lg font-semibold">Top performing postings</h2>
         {d.topJobPostings.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">
-            No postings yet.
-          </p>
+          <p className="mt-3 text-sm text-muted-foreground">No postings yet.</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -187,7 +185,10 @@ export default async function AdminDashboardPage({
               </thead>
               <tbody>
                 {d.topJobPostings.map((p) => (
-                  <tr key={p.id} className="border-b border-border last:border-b-0">
+                  <tr
+                    key={p.id}
+                    className="border-b border-border last:border-b-0"
+                  >
                     <td className="px-2 py-2 font-medium">{p.title}</td>
                     <td className="px-2 py-2">{p.companyName}</td>
                     <td className="px-2 py-2 font-mono text-xs">{p.status}</td>
@@ -200,7 +201,9 @@ export default async function AdminDashboardPage({
                           })
                         : "—"}
                     </td>
-                    <td className="px-2 py-2 font-mono">{p.applicationCount}</td>
+                    <td className="px-2 py-2 font-mono">
+                      {p.applicationCount}
+                    </td>
                     <td className="px-2 py-2 text-xs text-muted-foreground">
                       {p.programTag ?? "—"}
                     </td>
@@ -236,9 +239,14 @@ export default async function AdminDashboardPage({
               </thead>
               <tbody>
                 {d.companyParticipation.map((c) => (
-                  <tr key={c.id} className="border-b border-border last:border-b-0">
+                  <tr
+                    key={c.id}
+                    className="border-b border-border last:border-b-0"
+                  >
                     <td className="px-2 py-2 font-medium">{c.companyName}</td>
-                    <td className="px-2 py-2 font-mono text-xs">{c.approvalStatus}</td>
+                    <td className="px-2 py-2 font-mono text-xs">
+                      {c.approvalStatus}
+                    </td>
                     <td className="px-2 py-2 font-mono">{c.openJobPostings}</td>
                     <td className="px-2 py-2 font-mono">{c.totalApplicants}</td>
                     <td className="px-2 py-2 text-xs text-muted-foreground">
@@ -275,9 +283,7 @@ export default async function AdminDashboardPage({
           </Link>
         </div>
         {d.recentActivity.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">
-            No activity yet.
-          </p>
+          <p className="mt-3 text-sm text-muted-foreground">No activity yet.</p>
         ) : (
           <ol className="mt-3 divide-y divide-border">
             {d.recentActivity.map((e) => (
@@ -329,7 +335,10 @@ function FilterBar({
       className="flex flex-wrap items-end gap-3 rounded-md border border-border bg-card p-4 text-sm"
     >
       <div className="space-y-1">
-        <label htmlFor="window" className="text-xs font-medium text-muted-foreground">
+        <label
+          htmlFor="window"
+          className="text-xs font-medium text-muted-foreground"
+        >
           Time window
         </label>
         <select

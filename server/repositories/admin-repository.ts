@@ -27,7 +27,12 @@ import type {
 export const ADMIN_PAGE_SIZE = 20;
 
 export type Page = { page: number; pageSize: number };
-export type Paged<T> = { rows: T[]; total: number; page: number; pageSize: number };
+export type Paged<T> = {
+  rows: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
 
 function offset({ page, pageSize }: Page): number {
   return Math.max(0, (page - 1) * pageSize);
@@ -297,13 +302,12 @@ export type AdminJobRow = {
   };
 };
 
-function buildJobWhere(
-  filters: AdminJobFilters,
-): Prisma.JobPostingWhereInput {
+function buildJobWhere(filters: AdminJobFilters): Prisma.JobPostingWhereInput {
   const where: Prisma.JobPostingWhereInput = {};
   if (!filters.includeDeleted) where.deletedAt = null;
   if (filters.status) where.status = filters.status;
-  if (filters.companyProfileId) where.companyProfileId = filters.companyProfileId;
+  if (filters.companyProfileId)
+    where.companyProfileId = filters.companyProfileId;
   if (filters.programTag) where.programTag = filters.programTag;
   const q = filters.q?.trim();
   if (q) {
@@ -325,7 +329,11 @@ export async function pageJobPostingsForAdmin(
   const [rows, total] = await Promise.all([
     prisma.jobPosting.findMany({
       where,
-      orderBy: [{ status: "asc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
+      orderBy: [
+        { status: "asc" },
+        { publishedAt: "desc" },
+        { createdAt: "desc" },
+      ],
       skip: offset(p),
       take: p.pageSize,
       select: {
@@ -428,11 +436,13 @@ function buildApplicationWhere(
 ): Prisma.ApplicationWhereInput {
   const where: Prisma.ApplicationWhereInput = {};
   if (filters.status) where.status = filters.status;
-  if (filters.studentProfileId) where.studentProfileId = filters.studentProfileId;
+  if (filters.studentProfileId)
+    where.studentProfileId = filters.studentProfileId;
   if (filters.jobPostingId) where.jobPostingId = filters.jobPostingId;
 
   const jobFilter: Prisma.JobPostingWhereInput = {};
-  if (filters.companyProfileId) jobFilter.companyProfileId = filters.companyProfileId;
+  if (filters.companyProfileId)
+    jobFilter.companyProfileId = filters.companyProfileId;
   if (filters.programTag) jobFilter.programTag = filters.programTag;
   if (Object.keys(jobFilter).length > 0) where.jobPosting = jobFilter;
 

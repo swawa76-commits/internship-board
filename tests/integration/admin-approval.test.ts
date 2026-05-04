@@ -2,10 +2,11 @@
 import { afterAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db/client";
-import { createUserDirect, createUserWithCredentials } from "@/server/services/auth-service";
 import {
-  setCompanyApprovalStatus,
-} from "@/server/services/admin-service";
+  createUserDirect,
+  createUserWithCredentials,
+} from "@/server/services/auth-service";
+import { setCompanyApprovalStatus } from "@/server/services/admin-service";
 import { upsertCompanyProfile } from "@/server/services/company-service";
 import {
   canCompanyPublishJobs,
@@ -80,10 +81,12 @@ describe.skipIf(skip)("admin-service · setCompanyApprovalStatus", () => {
     const adminId = await makeAdmin("approve-pending");
     const co = await makeCompany("approve-pending");
     expect(
-      (await prisma.companyProfile.findUniqueOrThrow({
-        where: { id: co.companyProfileId },
-        select: { approvalStatus: true },
-      })).approvalStatus,
+      (
+        await prisma.companyProfile.findUniqueOrThrow({
+          where: { id: co.companyProfileId },
+          select: { approvalStatus: true },
+        })
+      ).approvalStatus,
     ).toBe("PENDING");
 
     const result = await setCompanyApprovalStatus(
@@ -250,34 +253,37 @@ describe.skipIf(skip)("admin-service · authorization", () => {
   });
 });
 
-describe.skipIf(skip)("invariant: company-service.upsertCompanyProfile never writes approvalStatus", () => {
-  it("a company saving its own profile cannot self-approve via the company-service path", async () => {
-    const co = await makeCompany("invariant");
-    // Force a known starting state so we can detect any bleed-through.
-    await prisma.companyProfile.update({
-      where: { id: co.companyProfileId },
-      data: { approvalStatus: "SUSPENDED" },
-    });
+describe.skipIf(skip)(
+  "invariant: company-service.upsertCompanyProfile never writes approvalStatus",
+  () => {
+    it("a company saving its own profile cannot self-approve via the company-service path", async () => {
+      const co = await makeCompany("invariant");
+      // Force a known starting state so we can detect any bleed-through.
+      await prisma.companyProfile.update({
+        where: { id: co.companyProfileId },
+        data: { approvalStatus: "SUSPENDED" },
+      });
 
-    // Even with a payload that *would* contain approvalStatus if the
-    // service were sloppy, the service ignores it: the schema doesn't
-    // include the field, so there's nothing to spread. We pass it as
-    // an extra property to prove it gets dropped.
-    await upsertCompanyProfile(co.userId, {
-      ...COMPLETE_INPUT,
-      companyName: "Renamed Co",
-      // @ts-expect-error — explicitly verifying the service drops unknown fields
-      approvalStatus: "APPROVED",
-    });
+      // Even with a payload that *would* contain approvalStatus if the
+      // service were sloppy, the service ignores it: the schema doesn't
+      // include the field, so there's nothing to spread. We pass it as
+      // an extra property to prove it gets dropped.
+      await upsertCompanyProfile(co.userId, {
+        ...COMPLETE_INPUT,
+        companyName: "Renamed Co",
+        // @ts-expect-error — explicitly verifying the service drops unknown fields
+        approvalStatus: "APPROVED",
+      });
 
-    const fresh = await prisma.companyProfile.findUniqueOrThrow({
-      where: { id: co.companyProfileId },
-      select: { approvalStatus: true, companyName: true },
+      const fresh = await prisma.companyProfile.findUniqueOrThrow({
+        where: { id: co.companyProfileId },
+        select: { approvalStatus: true, companyName: true },
+      });
+      expect(fresh.companyName).toBe("Renamed Co");
+      expect(fresh.approvalStatus).toBe("SUSPENDED"); // unchanged
     });
-    expect(fresh.companyName).toBe("Renamed Co");
-    expect(fresh.approvalStatus).toBe("SUSPENDED"); // unchanged
-  });
-});
+  },
+);
 
 describe.skipIf(skip)("visibility-service · canCompanyPublishJobs*", () => {
   it("pure status check: only APPROVED returns true", () => {
@@ -323,185 +329,188 @@ describe.skipIf(skip)("visibility-service · canCompanyPublishJobs*", () => {
   });
 });
 
-describe.skipIf(skip)("visibility-service · publicJobPostingVisibilityWhere", () => {
-  it("filters out postings owned by PENDING / SUSPENDED companies", async () => {
-    const adminId = await makeAdmin("posting-filter");
-    const approved = await makeCompany("posting-approved");
-    const pending = await makeCompany("posting-pending");
-    const suspended = await makeCompany("posting-suspended");
+describe.skipIf(skip)(
+  "visibility-service · publicJobPostingVisibilityWhere",
+  () => {
+    it("filters out postings owned by PENDING / SUSPENDED companies", async () => {
+      const adminId = await makeAdmin("posting-filter");
+      const approved = await makeCompany("posting-approved");
+      const pending = await makeCompany("posting-pending");
+      const suspended = await makeCompany("posting-suspended");
 
-    await setCompanyApprovalStatus(
-      adminId,
-      approved.companyProfileId,
-      "APPROVED",
-    );
-    await setCompanyApprovalStatus(
-      adminId,
-      suspended.companyProfileId,
-      "SUSPENDED",
-    );
-    // pending is left at PENDING.
+      await setCompanyApprovalStatus(
+        adminId,
+        approved.companyProfileId,
+        "APPROVED",
+      );
+      await setCompanyApprovalStatus(
+        adminId,
+        suspended.companyProfileId,
+        "SUSPENDED",
+      );
+      // pending is left at PENDING.
 
-    // One PUBLISHED posting per company; only the APPROVED one should be visible.
-    const slugBase = `${RUN_ID}-vis-where`;
-    const a = await prisma.jobPosting.create({
-      data: {
-        companyProfileId: approved.companyProfileId,
-        slug: `${slugBase}-a`,
-        title: "Approved-co posting",
-        workplaceType: "REMOTE",
-        description: "x",
-        status: "PUBLISHED",
-        publishedAt: new Date(),
-      },
-    });
-    const p = await prisma.jobPosting.create({
-      data: {
-        companyProfileId: pending.companyProfileId,
-        slug: `${slugBase}-p`,
-        title: "Pending-co posting",
-        workplaceType: "REMOTE",
-        description: "x",
-        status: "PUBLISHED",
-        publishedAt: new Date(),
-      },
-    });
-    const s = await prisma.jobPosting.create({
-      data: {
-        companyProfileId: suspended.companyProfileId,
-        slug: `${slugBase}-s`,
-        title: "Suspended-co posting",
-        workplaceType: "REMOTE",
-        description: "x",
-        status: "PUBLISHED",
-        publishedAt: new Date(),
-      },
-    });
+      // One PUBLISHED posting per company; only the APPROVED one should be visible.
+      const slugBase = `${RUN_ID}-vis-where`;
+      const a = await prisma.jobPosting.create({
+        data: {
+          companyProfileId: approved.companyProfileId,
+          slug: `${slugBase}-a`,
+          title: "Approved-co posting",
+          workplaceType: "REMOTE",
+          description: "x",
+          status: "PUBLISHED",
+          publishedAt: new Date(),
+        },
+      });
+      const p = await prisma.jobPosting.create({
+        data: {
+          companyProfileId: pending.companyProfileId,
+          slug: `${slugBase}-p`,
+          title: "Pending-co posting",
+          workplaceType: "REMOTE",
+          description: "x",
+          status: "PUBLISHED",
+          publishedAt: new Date(),
+        },
+      });
+      const s = await prisma.jobPosting.create({
+        data: {
+          companyProfileId: suspended.companyProfileId,
+          slug: `${slugBase}-s`,
+          title: "Suspended-co posting",
+          workplaceType: "REMOTE",
+          description: "x",
+          status: "PUBLISHED",
+          publishedAt: new Date(),
+        },
+      });
 
-    const visibleIds = new Set(
-      (
-        await prisma.jobPosting.findMany({
-          where: publicJobPostingVisibilityWhere(),
-          select: { id: true },
-        })
-      ).map((r) => r.id),
-    );
-    expect(visibleIds.has(a.id)).toBe(true);
-    expect(visibleIds.has(p.id)).toBe(false);
-    expect(visibleIds.has(s.id)).toBe(false);
-  });
-
-  it("filters out a published posting whose APPROVED company has been soft-deleted", async () => {
-    // Soft-delete leakage check: even with an APPROVED status and a
-    // PUBLISHED posting, a soft-deleted company must not appear in the
-    // public visibility fragment.
-    const adminId = await makeAdmin("vis-soft-co");
-    const co = await makeCompany("vis-soft-co");
-    await setCompanyApprovalStatus(adminId, co.companyProfileId, "APPROVED");
-
-    const posting = await prisma.jobPosting.create({
-      data: {
-        companyProfileId: co.companyProfileId,
-        slug: `${RUN_ID}-soft-co-posting`,
-        title: "Posting under soft-deleted co",
-        workplaceType: "REMOTE",
-        description: "x",
-        status: "PUBLISHED",
-        publishedAt: new Date(),
-      },
+      const visibleIds = new Set(
+        (
+          await prisma.jobPosting.findMany({
+            where: publicJobPostingVisibilityWhere(),
+            select: { id: true },
+          })
+        ).map((r) => r.id),
+      );
+      expect(visibleIds.has(a.id)).toBe(true);
+      expect(visibleIds.has(p.id)).toBe(false);
+      expect(visibleIds.has(s.id)).toBe(false);
     });
 
-    // Visible while the company is alive.
-    let visible = await prisma.jobPosting.findMany({
-      where: { ...publicJobPostingVisibilityWhere(), id: posting.id },
-      select: { id: true },
-    });
-    expect(visible).toHaveLength(1);
+    it("filters out a published posting whose APPROVED company has been soft-deleted", async () => {
+      // Soft-delete leakage check: even with an APPROVED status and a
+      // PUBLISHED posting, a soft-deleted company must not appear in the
+      // public visibility fragment.
+      const adminId = await makeAdmin("vis-soft-co");
+      const co = await makeCompany("vis-soft-co");
+      await setCompanyApprovalStatus(adminId, co.companyProfileId, "APPROVED");
 
-    // Soft-delete the company; posting must drop out of the fragment.
-    await prisma.companyProfile.update({
-      where: { id: co.companyProfileId },
-      data: { deletedAt: new Date() },
-    });
-    visible = await prisma.jobPosting.findMany({
-      where: { ...publicJobPostingVisibilityWhere(), id: posting.id },
-      select: { id: true },
-    });
-    expect(visible).toHaveLength(0);
-  });
+      const posting = await prisma.jobPosting.create({
+        data: {
+          companyProfileId: co.companyProfileId,
+          slug: `${RUN_ID}-soft-co-posting`,
+          title: "Posting under soft-deleted co",
+          workplaceType: "REMOTE",
+          description: "x",
+          status: "PUBLISHED",
+          publishedAt: new Date(),
+        },
+      });
 
-  it("filters out a soft-deleted posting even when the company is APPROVED and live", async () => {
-    const adminId = await makeAdmin("vis-soft-posting");
-    const co = await makeCompany("vis-soft-posting");
-    await setCompanyApprovalStatus(adminId, co.companyProfileId, "APPROVED");
+      // Visible while the company is alive.
+      let visible = await prisma.jobPosting.findMany({
+        where: { ...publicJobPostingVisibilityWhere(), id: posting.id },
+        select: { id: true },
+      });
+      expect(visible).toHaveLength(1);
 
-    const posting = await prisma.jobPosting.create({
-      data: {
-        companyProfileId: co.companyProfileId,
-        slug: `${RUN_ID}-soft-posting`,
-        title: "Soft-deleted posting",
-        workplaceType: "REMOTE",
-        description: "x",
-        status: "PUBLISHED",
-        publishedAt: new Date(),
-        deletedAt: new Date(),
-      },
-    });
-
-    const visible = await prisma.jobPosting.findMany({
-      where: { ...publicJobPostingVisibilityWhere(), id: posting.id },
-      select: { id: true },
-    });
-    expect(visible).toHaveLength(0);
-  });
-
-  it("filters out non-PUBLISHED postings even from APPROVED companies", async () => {
-    const adminId = await makeAdmin("status-filter");
-    const co = await makeCompany("status-filter");
-    await setCompanyApprovalStatus(adminId, co.companyProfileId, "APPROVED");
-
-    const draft = await prisma.jobPosting.create({
-      data: {
-        companyProfileId: co.companyProfileId,
-        slug: `${RUN_ID}-draft`,
-        title: "Draft posting",
-        workplaceType: "REMOTE",
-        description: "x",
-        status: "DRAFT",
-      },
-    });
-    const closed = await prisma.jobPosting.create({
-      data: {
-        companyProfileId: co.companyProfileId,
-        slug: `${RUN_ID}-closed`,
-        title: "Closed posting",
-        workplaceType: "REMOTE",
-        description: "x",
-        status: "CLOSED",
-      },
-    });
-    const published = await prisma.jobPosting.create({
-      data: {
-        companyProfileId: co.companyProfileId,
-        slug: `${RUN_ID}-published`,
-        title: "Published posting",
-        workplaceType: "REMOTE",
-        description: "x",
-        status: "PUBLISHED",
-        publishedAt: new Date(),
-      },
+      // Soft-delete the company; posting must drop out of the fragment.
+      await prisma.companyProfile.update({
+        where: { id: co.companyProfileId },
+        data: { deletedAt: new Date() },
+      });
+      visible = await prisma.jobPosting.findMany({
+        where: { ...publicJobPostingVisibilityWhere(), id: posting.id },
+        select: { id: true },
+      });
+      expect(visible).toHaveLength(0);
     });
 
-    const visibleIds = new Set(
-      (
-        await prisma.jobPosting.findMany({
-          where: publicJobPostingVisibilityWhere(),
-          select: { id: true },
-        })
-      ).map((r) => r.id),
-    );
-    expect(visibleIds.has(published.id)).toBe(true);
-    expect(visibleIds.has(draft.id)).toBe(false);
-    expect(visibleIds.has(closed.id)).toBe(false);
-  });
-});
+    it("filters out a soft-deleted posting even when the company is APPROVED and live", async () => {
+      const adminId = await makeAdmin("vis-soft-posting");
+      const co = await makeCompany("vis-soft-posting");
+      await setCompanyApprovalStatus(adminId, co.companyProfileId, "APPROVED");
+
+      const posting = await prisma.jobPosting.create({
+        data: {
+          companyProfileId: co.companyProfileId,
+          slug: `${RUN_ID}-soft-posting`,
+          title: "Soft-deleted posting",
+          workplaceType: "REMOTE",
+          description: "x",
+          status: "PUBLISHED",
+          publishedAt: new Date(),
+          deletedAt: new Date(),
+        },
+      });
+
+      const visible = await prisma.jobPosting.findMany({
+        where: { ...publicJobPostingVisibilityWhere(), id: posting.id },
+        select: { id: true },
+      });
+      expect(visible).toHaveLength(0);
+    });
+
+    it("filters out non-PUBLISHED postings even from APPROVED companies", async () => {
+      const adminId = await makeAdmin("status-filter");
+      const co = await makeCompany("status-filter");
+      await setCompanyApprovalStatus(adminId, co.companyProfileId, "APPROVED");
+
+      const draft = await prisma.jobPosting.create({
+        data: {
+          companyProfileId: co.companyProfileId,
+          slug: `${RUN_ID}-draft`,
+          title: "Draft posting",
+          workplaceType: "REMOTE",
+          description: "x",
+          status: "DRAFT",
+        },
+      });
+      const closed = await prisma.jobPosting.create({
+        data: {
+          companyProfileId: co.companyProfileId,
+          slug: `${RUN_ID}-closed`,
+          title: "Closed posting",
+          workplaceType: "REMOTE",
+          description: "x",
+          status: "CLOSED",
+        },
+      });
+      const published = await prisma.jobPosting.create({
+        data: {
+          companyProfileId: co.companyProfileId,
+          slug: `${RUN_ID}-published`,
+          title: "Published posting",
+          workplaceType: "REMOTE",
+          description: "x",
+          status: "PUBLISHED",
+          publishedAt: new Date(),
+        },
+      });
+
+      const visibleIds = new Set(
+        (
+          await prisma.jobPosting.findMany({
+            where: publicJobPostingVisibilityWhere(),
+            select: { id: true },
+          })
+        ).map((r) => r.id),
+      );
+      expect(visibleIds.has(published.id)).toBe(true);
+      expect(visibleIds.has(draft.id)).toBe(false);
+      expect(visibleIds.has(closed.id)).toBe(false);
+    });
+  },
+);

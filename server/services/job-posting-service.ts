@@ -90,9 +90,7 @@ function isSlugCollision(err: unknown): boolean {
 
 // ---------- Ownership helpers ----------
 
-async function resolveCompanyProfileId(
-  userId: string,
-): Promise<string | null> {
+async function resolveCompanyProfileId(userId: string): Promise<string | null> {
   const profile = await prisma.companyProfile.findFirst({
     where: { userId, deletedAt: null },
     select: { id: true },
@@ -188,7 +186,8 @@ async function gateOnPublish(
 ): Promise<{ ok: true } | { ok: false; reason: "publish_blocked" }> {
   if (status !== "PUBLISHED") return { ok: true };
   const allowed = await canCompanyPublishJobsByUserId(userId);
-  return allowed ? { ok: true } : { ok: false, reason: "publish_blocked" };}
+  return allowed ? { ok: true } : { ok: false, reason: "publish_blocked" };
+}
 
 export async function createJobPosting(
   companyUserId: string,

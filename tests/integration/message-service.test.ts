@@ -134,7 +134,11 @@ async function makeApprovedCoWithJob(suffix: string) {
     companyName: `Co ${suffix}`,
   });
   if (!profile.ok) throw new Error("profile setup failed");
-  await setCompanyApprovalStatus(adminUser.id, profile.companyProfileId, "APPROVED");
+  await setCompanyApprovalStatus(
+    adminUser.id,
+    profile.companyProfileId,
+    "APPROVED",
+  );
   const job = await createJobPosting(r.userId, {
     ...POSTING_BASE,
     title: `Job ${suffix}`,
@@ -228,7 +232,9 @@ describe.skipIf(skip)("startThreadAsCompany", () => {
     expect(r.reason).toBe("forbidden");
 
     // Defensive: nothing was written.
-    const count = await prisma.messageThread.count({ where: { applicationId: appId } });
+    const count = await prisma.messageThread.count({
+      where: { applicationId: appId },
+    });
     expect(count).toBe(0);
   });
 
@@ -383,53 +389,63 @@ describe.skipIf(skip)("listThreadsFor* · tenant isolation", () => {
   });
 });
 
-describe.skipIf(skip)("getThread* · 404 collapse on cross-tenant access", () => {
-  it("a student gets null for a thread on someone else's application", async () => {
-    const owner = await makeStudent("detail-owner");
-    const attacker = await makeStudent("detail-attacker");
-    const co = await makeApprovedCoWithJob("detail-stud-cross");
-    const appId = await applicationFor(owner, co.jobId);
-    const t = await startThreadAsCompany(co.companyUserId, appId, "Hi.");
-    if (!t.ok) throw new Error("setup failed");
+describe.skipIf(skip)(
+  "getThread* · 404 collapse on cross-tenant access",
+  () => {
+    it("a student gets null for a thread on someone else's application", async () => {
+      const owner = await makeStudent("detail-owner");
+      const attacker = await makeStudent("detail-attacker");
+      const co = await makeApprovedCoWithJob("detail-stud-cross");
+      const appId = await applicationFor(owner, co.jobId);
+      const t = await startThreadAsCompany(co.companyUserId, appId, "Hi.");
+      if (!t.ok) throw new Error("setup failed");
 
-    expect(await getThreadForStudent(owner, t.threadId)).not.toBeNull();
-    expect(await getThreadForStudent(attacker, t.threadId)).toBeNull();
-  });
-
-  it("a company gets null for a thread on a posting it doesn't own", async () => {
-    const stud = await makeStudent("detail-co-cross");
-    const owner = await makeApprovedCoWithJob("detail-co-owner");
-    const attacker = await makeApprovedCoWithJob("detail-co-attacker");
-    const appId = await applicationFor(stud, owner.jobId);
-    const t = await startThreadAsCompany(owner.companyUserId, appId, "Hi.");
-    if (!t.ok) throw new Error("setup failed");
-
-    expect(await getThreadForCompany(owner.companyUserId, t.threadId)).not.toBeNull();
-    expect(await getThreadForCompany(attacker.companyUserId, t.threadId)).toBeNull();
-  });
-});
-
-describe.skipIf(skip)("getThreadForStudent · marks company messages read", () => {
-  it("flips readAt on counterparty messages on first load", async () => {
-    const stud = await makeStudent("read-mark");
-    const co = await makeApprovedCoWithJob("read-mark");
-    const appId = await applicationFor(stud, co.jobId);
-    const t = await startThreadAsCompany(co.companyUserId, appId, "Unread.");
-    if (!t.ok) throw new Error("setup failed");
-
-    const beforeUnread = await prisma.message.count({
-      where: { threadId: t.threadId, readAt: null },
+      expect(await getThreadForStudent(owner, t.threadId)).not.toBeNull();
+      expect(await getThreadForStudent(attacker, t.threadId)).toBeNull();
     });
-    expect(beforeUnread).toBe(1);
 
-    await getThreadForStudent(stud, t.threadId);
+    it("a company gets null for a thread on a posting it doesn't own", async () => {
+      const stud = await makeStudent("detail-co-cross");
+      const owner = await makeApprovedCoWithJob("detail-co-owner");
+      const attacker = await makeApprovedCoWithJob("detail-co-attacker");
+      const appId = await applicationFor(stud, owner.jobId);
+      const t = await startThreadAsCompany(owner.companyUserId, appId, "Hi.");
+      if (!t.ok) throw new Error("setup failed");
 
-    const afterUnread = await prisma.message.count({
-      where: { threadId: t.threadId, readAt: null },
+      expect(
+        await getThreadForCompany(owner.companyUserId, t.threadId),
+      ).not.toBeNull();
+      expect(
+        await getThreadForCompany(attacker.companyUserId, t.threadId),
+      ).toBeNull();
     });
-    expect(afterUnread).toBe(0);
-  });
-});
+  },
+);
+
+describe.skipIf(skip)(
+  "getThreadForStudent · marks company messages read",
+  () => {
+    it("flips readAt on counterparty messages on first load", async () => {
+      const stud = await makeStudent("read-mark");
+      const co = await makeApprovedCoWithJob("read-mark");
+      const appId = await applicationFor(stud, co.jobId);
+      const t = await startThreadAsCompany(co.companyUserId, appId, "Unread.");
+      if (!t.ok) throw new Error("setup failed");
+
+      const beforeUnread = await prisma.message.count({
+        where: { threadId: t.threadId, readAt: null },
+      });
+      expect(beforeUnread).toBe(1);
+
+      await getThreadForStudent(stud, t.threadId);
+
+      const afterUnread = await prisma.message.count({
+        where: { threadId: t.threadId, readAt: null },
+      });
+      expect(afterUnread).toBe(0);
+    });
+  },
+);
 
 describe.skipIf(skip)("getThreadIdForApplicationAsCompany", () => {
   it("returns null for a foreign company and the id for the owner", async () => {
@@ -458,11 +474,7 @@ describe.skipIf(skip)("Patch 1 · terminal-state read-only", () => {
     if (!start.ok) throw new Error("setup failed");
 
     // Company moves the app to REJECTED.
-    await transitionApplicationStatus(
-      co.companyUserId,
-      appId,
-      "REJECTED",
-    );
+    await transitionApplicationStatus(co.companyUserId, appId, "REJECTED");
 
     const send = await sendMessageAsStudent(stud, start.threadId, "Hello?");
     expect(send.ok).toBe(false);
@@ -485,11 +497,7 @@ describe.skipIf(skip)("Patch 1 · terminal-state read-only", () => {
     const start = await startThreadAsCompany(co.companyUserId, appId, "Hi.");
     if (!start.ok) throw new Error("setup failed");
 
-    await transitionApplicationStatus(
-      co.companyUserId,
-      appId,
-      "REJECTED",
-    );
+    await transitionApplicationStatus(co.companyUserId, appId, "REJECTED");
 
     const send = await sendMessageAsCompany(
       co.companyUserId,
@@ -500,10 +508,7 @@ describe.skipIf(skip)("Patch 1 · terminal-state read-only", () => {
     if (send.ok) return;
     expect(send.reason).toBe("thread_closed");
 
-    const detail = await getThreadForCompany(
-      co.companyUserId,
-      start.threadId,
-    );
+    const detail = await getThreadForCompany(co.companyUserId, start.threadId);
     expect(detail).not.toBeNull();
     expect(detail?.threadClosed).toBe(true);
     expect(detail?.canReply).toBe(false);
@@ -533,7 +538,10 @@ describe.skipIf(skip)("Patch 1 · terminal-state read-only", () => {
 
     // Both sides still read the historical thread.
     const studDetail = await getThreadForStudent(stud, start.threadId);
-    const coDetail = await getThreadForCompany(co.companyUserId, start.threadId);
+    const coDetail = await getThreadForCompany(
+      co.companyUserId,
+      start.threadId,
+    );
     expect(studDetail?.threadClosed).toBe(true);
     expect(coDetail?.threadClosed).toBe(true);
     expect(studDetail?.applicationStatus).toBe("WITHDRAWN");

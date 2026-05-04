@@ -6,7 +6,10 @@ import {
   TextField,
 } from "@/features/admin/admin-filter-bar";
 import { AdminPagination } from "@/features/admin/admin-pagination";
-import { AdminTable, type AdminTableColumn } from "@/features/admin/admin-table";
+import {
+  AdminTable,
+  type AdminTableColumn,
+} from "@/features/admin/admin-table";
 import { ConfirmFormButton } from "@/features/admin/confirm-form-button";
 import { softDeleteJobPostingAdminAction } from "@/features/admin/actions";
 import type { JobPostingStatus } from "@/lib/db/generated/enums";
@@ -59,7 +62,10 @@ export default async function AdminJobsPage({
   const programTag = readParam(raw.programTag).trim() || null;
   const companyProfileId = readParam(raw.companyProfileId).trim() || undefined;
   const includeDeleted = readParam(raw.includeDeleted) === "1";
-  const page = Math.max(1, Number.parseInt(readParam(raw.page) || "1", 10) || 1);
+  const page = Math.max(
+    1,
+    Number.parseInt(readParam(raw.page) || "1", 10) || 1,
+  );
 
   const status = VALID_STATUSES.has(statusRaw)
     ? (statusRaw as JobPostingStatus)
@@ -174,10 +180,9 @@ export default async function AdminJobsPage({
         </p>
         <h1 className="text-3xl font-semibold tracking-tight">Job postings</h1>
         <p className="text-sm text-muted-foreground">
-          Cross-company view of every posting. Includes drafts, paused,
-          closed, archived, and postings on pending or suspended companies
-          — admin visibility deliberately bypasses the public visibility
-          rules.
+          Cross-company view of every posting. Includes drafts, paused, closed,
+          archived, and postings on pending or suspended companies — admin
+          visibility deliberately bypasses the public visibility rules.
         </p>
         <p className="text-xs text-muted-foreground">
           <Link className="hover:text-foreground hover:underline" href="/admin">

@@ -160,7 +160,8 @@ export async function listCompaniesPageForAdmin(
   filters: AdminCompanyFilters,
   page: Page,
 ): Promise<AdminListResult<Paged<AdminCompanyRow>>> {
-  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  if (!(await ensureAdmin(adminUserId)))
+    return { ok: false, reason: "not_admin" };
   return { ok: true, data: await pageCompaniesForAdmin(filters, page) };
 }
 
@@ -169,7 +170,8 @@ export async function listStudentsPageForAdmin(
   filters: AdminStudentFilters,
   page: Page,
 ): Promise<AdminListResult<Paged<AdminStudentRow>>> {
-  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  if (!(await ensureAdmin(adminUserId)))
+    return { ok: false, reason: "not_admin" };
   return { ok: true, data: await pageStudentsForAdmin(filters, page) };
 }
 
@@ -178,7 +180,8 @@ export async function listJobPostingsPageForAdmin(
   filters: AdminJobFilters,
   page: Page,
 ): Promise<AdminListResult<Paged<AdminJobRow>>> {
-  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  if (!(await ensureAdmin(adminUserId)))
+    return { ok: false, reason: "not_admin" };
   return { ok: true, data: await pageJobPostingsForAdmin(filters, page) };
 }
 
@@ -187,14 +190,16 @@ export async function listApplicationsPageForAdmin(
   filters: AdminApplicationFilters,
   page: Page,
 ): Promise<AdminListResult<Paged<AdminApplicationRow>>> {
-  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  if (!(await ensureAdmin(adminUserId)))
+    return { ok: false, reason: "not_admin" };
   return { ok: true, data: await pageApplicationsForAdmin(filters, page) };
 }
 
 export async function listFilterCompaniesForAdmin(
   adminUserId: string,
 ): Promise<AdminListResult<Array<{ id: string; companyName: string }>>> {
-  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  if (!(await ensureAdmin(adminUserId)))
+    return { ok: false, reason: "not_admin" };
   return { ok: true, data: await listCompaniesForFilterDropdown() };
 }
 
@@ -205,14 +210,16 @@ export async function listActivityPageForAdmin(
   filters: ActivityFilters,
   page: Page,
 ): Promise<AdminListResult<Paged<ActivityRow>>> {
-  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  if (!(await ensureAdmin(adminUserId)))
+    return { ok: false, reason: "not_admin" };
   return { ok: true, data: await pageActivityForAdmin(filters, page) };
 }
 
 export async function listActivityEntityTypesForAdmin(
   adminUserId: string,
 ): Promise<AdminListResult<string[]>> {
-  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  if (!(await ensureAdmin(adminUserId)))
+    return { ok: false, reason: "not_admin" };
   return { ok: true, data: await listActivityEntityTypes() };
 }
 
@@ -222,7 +229,8 @@ export async function softDeleteCompanyAsAdmin(
   adminUserId: string,
   companyProfileId: string,
 ): Promise<AdminMutateResult> {
-  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  if (!(await ensureAdmin(adminUserId)))
+    return { ok: false, reason: "not_admin" };
   const r = await softDeleteCompanyProfileById(companyProfileId);
   if (!r.ok) return { ok: false, reason: "not_found" };
   await prisma.activityEvent.create({
@@ -240,7 +248,8 @@ export async function softDeleteStudentAsAdmin(
   adminUserId: string,
   studentUserId: string,
 ): Promise<AdminMutateResult> {
-  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  if (!(await ensureAdmin(adminUserId)))
+    return { ok: false, reason: "not_admin" };
   const r = await softDeleteStudentByUserId(studentUserId);
   if (!r.ok) return { ok: false, reason: "not_found" };
   await prisma.activityEvent.create({
@@ -258,7 +267,8 @@ export async function softDeleteJobPostingAsAdmin(
   adminUserId: string,
   jobPostingId: string,
 ): Promise<AdminMutateResult> {
-  if (!(await ensureAdmin(adminUserId))) return { ok: false, reason: "not_admin" };
+  if (!(await ensureAdmin(adminUserId)))
+    return { ok: false, reason: "not_admin" };
   const r = await softDeleteJobPostingById(jobPostingId);
   if (!r.ok) return { ok: false, reason: "not_found" };
   await prisma.activityEvent.create({

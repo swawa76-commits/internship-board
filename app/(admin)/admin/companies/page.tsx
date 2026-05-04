@@ -6,7 +6,10 @@ import {
   TextField,
 } from "@/features/admin/admin-filter-bar";
 import { AdminPagination } from "@/features/admin/admin-pagination";
-import { AdminTable, type AdminTableColumn } from "@/features/admin/admin-table";
+import {
+  AdminTable,
+  type AdminTableColumn,
+} from "@/features/admin/admin-table";
 import { ConfirmFormButton } from "@/features/admin/confirm-form-button";
 import {
   setCompanyApprovalAction,
@@ -19,9 +22,7 @@ import {
   ADMIN_PAGE_SIZE,
   type AdminCompanyRow,
 } from "@/server/repositories/admin-repository";
-import {
-  listCompaniesPageForAdmin,
-} from "@/server/services/admin-service";
+import { listCompaniesPageForAdmin } from "@/server/services/admin-service";
 import { listProgramTags } from "@/server/services/admin-metrics-service";
 
 export const metadata = {
@@ -54,7 +55,10 @@ export default async function AdminCompaniesPage({
   const approvalRaw = readParam(raw.approvalStatus).trim();
   const programTag = readParam(raw.programTag).trim() || null;
   const includeDeleted = readParam(raw.includeDeleted) === "1";
-  const page = Math.max(1, Number.parseInt(readParam(raw.page) || "1", 10) || 1);
+  const page = Math.max(
+    1,
+    Number.parseInt(readParam(raw.page) || "1", 10) || 1,
+  );
 
   const approvalStatus = VALID_APPROVALS.has(approvalRaw)
     ? (approvalRaw as CompanyApprovalStatus)
@@ -118,9 +122,7 @@ export default async function AdminCompaniesPage({
     {
       key: "postings",
       header: "Postings",
-      cell: (r) => (
-        <p className="font-mono text-xs">{r.jobPostingCount}</p>
-      ),
+      cell: (r) => <p className="font-mono text-xs">{r.jobPostingCount}</p>,
     },
     {
       key: "updated",
@@ -141,9 +143,21 @@ export default async function AdminCompaniesPage({
       align: "right",
       cell: (r) => (
         <div className="flex flex-wrap justify-end gap-2">
-          <ApprovalButton id={r.id} target="APPROVED" current={r.approvalStatus} />
-          <ApprovalButton id={r.id} target="PENDING" current={r.approvalStatus} />
-          <ApprovalButton id={r.id} target="SUSPENDED" current={r.approvalStatus} />
+          <ApprovalButton
+            id={r.id}
+            target="APPROVED"
+            current={r.approvalStatus}
+          />
+          <ApprovalButton
+            id={r.id}
+            target="PENDING"
+            current={r.approvalStatus}
+          />
+          <ApprovalButton
+            id={r.id}
+            target="SUSPENDED"
+            current={r.approvalStatus}
+          />
           {!r.deletedAt ? (
             <form action={softDeleteCompanyAdminAction}>
               <input type="hidden" name="id" value={r.id} />
@@ -166,9 +180,9 @@ export default async function AdminCompaniesPage({
         </p>
         <h1 className="text-3xl font-semibold tracking-tight">Companies</h1>
         <p className="text-sm text-muted-foreground">
-          Approve, suspend, or move a company back to pending. Soft-delete
-          when the account should disappear from public surfaces. Approval
-          changes log to the activity feed.
+          Approve, suspend, or move a company back to pending. Soft-delete when
+          the account should disappear from public surfaces. Approval changes
+          log to the activity feed.
         </p>
         <p className="text-xs text-muted-foreground">
           <Link className="hover:text-foreground hover:underline" href="/admin">

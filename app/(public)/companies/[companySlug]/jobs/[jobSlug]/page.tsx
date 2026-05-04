@@ -178,16 +178,10 @@ export default async function PublicJobDetailPage({
               />
             ) : null}
             {posting.compensationMin != null ? (
-              <Detail
-                label="Min comp"
-                value={`$${posting.compensationMin}`}
-              />
+              <Detail label="Min comp" value={`$${posting.compensationMin}`} />
             ) : null}
             {posting.compensationMax != null ? (
-              <Detail
-                label="Max comp"
-                value={`$${posting.compensationMax}`}
-              />
+              <Detail label="Max comp" value={`$${posting.compensationMax}`} />
             ) : null}
           </section>
         )}

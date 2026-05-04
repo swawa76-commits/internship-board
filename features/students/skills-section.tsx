@@ -3,10 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  addSkillAction,
-  removeSkillAction,
-} from "@/features/students/actions";
+import { addSkillAction, removeSkillAction } from "@/features/students/actions";
 
 export type SkillsSectionItem = { id: string; name: string };
 
@@ -16,7 +13,8 @@ export function SkillsSection({ items }: { items: SkillsSectionItem[] }) {
       <ul className="flex flex-wrap gap-2" aria-label="Skills">
         {items.length === 0 ? (
           <li className="text-sm text-muted-foreground">
-            No skills yet. Add the technologies and tools you&apos;re comfortable with.
+            No skills yet. Add the technologies and tools you&apos;re
+            comfortable with.
           </li>
         ) : (
           items.map((s) => (

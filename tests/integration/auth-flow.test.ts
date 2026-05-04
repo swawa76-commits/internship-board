@@ -95,10 +95,7 @@ describe.skipIf(skip)("Credentials authorize() lookup", () => {
     });
     if (r.ok) createdUserIds.push(r.userId);
 
-    const authResult = await authenticateCredentials(
-      email,
-      "longenough",
-    );
+    const authResult = await authenticateCredentials(email, "longenough");
     expect(authResult).not.toBeNull();
     expect(authResult?.email).toBe(email);
     expect(authResult?.role).toBe("COMPANY");
@@ -113,10 +110,7 @@ describe.skipIf(skip)("Credentials authorize() lookup", () => {
     });
     if (r.ok) createdUserIds.push(r.userId);
 
-    const authResult = await authenticateCredentials(
-      email,
-      "not-the-password",
-    );
+    const authResult = await authenticateCredentials(email, "not-the-password");
     expect(authResult).toBeNull();
   });
 
@@ -143,10 +137,7 @@ describe.skipIf(skip)("Credentials authorize() lookup", () => {
       data: { deletedAt: new Date() },
     });
 
-    const authResult = await authenticateCredentials(
-      email,
-      "longenough",
-    );
+    const authResult = await authenticateCredentials(email, "longenough");
     expect(authResult).toBeNull();
   });
 });

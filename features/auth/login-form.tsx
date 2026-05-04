@@ -3,10 +3,7 @@
 import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  loginAction,
-  type AuthFormState,
-} from "@/features/auth/actions";
+import { loginAction, type AuthFormState } from "@/features/auth/actions";
 
 const initial: AuthFormState = { status: "idle" };
 

@@ -161,49 +161,52 @@ describe.skipIf(skip)("upsertCompanyProfile · create + edit", () => {
   });
 });
 
-describe.skipIf(skip)("upsertCompanyProfile · approvalStatus invariance", () => {
-  it("creating a profile starts at PENDING (schema default)", async () => {
-    const userId = await makeCompany("default-pending");
-    await upsertCompanyProfile(userId, COMPLETE_INPUT);
-    const after = await getCompanyProfileByUserId(userId);
-    expect(after?.approvalStatus).toBe("PENDING");
-  });
-
-  it("does not change approvalStatus when an APPROVED company saves their profile", async () => {
-    const userId = await makeCompany("stays-approved");
-    await upsertCompanyProfile(userId, COMPLETE_INPUT);
-    // Simulate an admin approval (Task 8 will own this for real).
-    const before = await getCompanyProfileByUserId(userId);
-    await prisma.companyProfile.update({
-      where: { id: before!.id },
-      data: { approvalStatus: "APPROVED" },
+describe.skipIf(skip)(
+  "upsertCompanyProfile · approvalStatus invariance",
+  () => {
+    it("creating a profile starts at PENDING (schema default)", async () => {
+      const userId = await makeCompany("default-pending");
+      await upsertCompanyProfile(userId, COMPLETE_INPUT);
+      const after = await getCompanyProfileByUserId(userId);
+      expect(after?.approvalStatus).toBe("PENDING");
     });
 
-    await upsertCompanyProfile(userId, {
-      ...COMPLETE_INPUT,
-      companyName: "Approved Co Renamed",
-    });
-    const after = await getCompanyProfileByUserId(userId);
-    expect(after?.approvalStatus).toBe("APPROVED");
-  });
+    it("does not change approvalStatus when an APPROVED company saves their profile", async () => {
+      const userId = await makeCompany("stays-approved");
+      await upsertCompanyProfile(userId, COMPLETE_INPUT);
+      // Simulate an admin approval (Task 8 will own this for real).
+      const before = await getCompanyProfileByUserId(userId);
+      await prisma.companyProfile.update({
+        where: { id: before!.id },
+        data: { approvalStatus: "APPROVED" },
+      });
 
-  it("does not change approvalStatus when a SUSPENDED company saves their profile", async () => {
-    const userId = await makeCompany("stays-suspended");
-    await upsertCompanyProfile(userId, COMPLETE_INPUT);
-    const before = await getCompanyProfileByUserId(userId);
-    await prisma.companyProfile.update({
-      where: { id: before!.id },
-      data: { approvalStatus: "SUSPENDED" },
+      await upsertCompanyProfile(userId, {
+        ...COMPLETE_INPUT,
+        companyName: "Approved Co Renamed",
+      });
+      const after = await getCompanyProfileByUserId(userId);
+      expect(after?.approvalStatus).toBe("APPROVED");
     });
 
-    await upsertCompanyProfile(userId, {
-      ...COMPLETE_INPUT,
-      shortDescription: "Updated tagline.",
+    it("does not change approvalStatus when a SUSPENDED company saves their profile", async () => {
+      const userId = await makeCompany("stays-suspended");
+      await upsertCompanyProfile(userId, COMPLETE_INPUT);
+      const before = await getCompanyProfileByUserId(userId);
+      await prisma.companyProfile.update({
+        where: { id: before!.id },
+        data: { approvalStatus: "SUSPENDED" },
+      });
+
+      await upsertCompanyProfile(userId, {
+        ...COMPLETE_INPUT,
+        shortDescription: "Updated tagline.",
+      });
+      const after = await getCompanyProfileByUserId(userId);
+      expect(after?.approvalStatus).toBe("SUSPENDED");
     });
-    const after = await getCompanyProfileByUserId(userId);
-    expect(after?.approvalStatus).toBe("SUSPENDED");
-  });
-});
+  },
+);
 
 describe.skipIf(skip)("upsertCompanyProfile · ownership", () => {
   it("only ever writes to the row owned by the userId arg", async () => {

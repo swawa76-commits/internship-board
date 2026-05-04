@@ -3,10 +3,7 @@
 import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  signupAction,
-  type AuthFormState,
-} from "@/features/auth/actions";
+import { signupAction, type AuthFormState } from "@/features/auth/actions";
 
 const initial: AuthFormState = { status: "idle" };
 
@@ -48,15 +45,11 @@ export function SignupForm() {
           autoComplete="new-password"
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         />
-        <p className="text-xs text-muted-foreground">
-          At least 8 characters.
-        </p>
+        <p className="text-xs text-muted-foreground">At least 8 characters.</p>
       </div>
 
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-foreground">
-          I am a…
-        </legend>
+        <legend className="text-sm font-medium text-foreground">I am a…</legend>
         <div className="flex gap-3">
           <label className="flex-1 cursor-pointer rounded-md border border-input bg-background px-3 py-2 text-sm has-[:checked]:border-foreground has-[:checked]:bg-accent">
             <input
@@ -69,12 +62,7 @@ export function SignupForm() {
             Student
           </label>
           <label className="flex-1 cursor-pointer rounded-md border border-input bg-background px-3 py-2 text-sm has-[:checked]:border-foreground has-[:checked]:bg-accent">
-            <input
-              type="radio"
-              name="role"
-              value="COMPANY"
-              className="mr-2"
-            />
+            <input type="radio" name="role" value="COMPANY" className="mr-2" />
             Company
           </label>
         </div>

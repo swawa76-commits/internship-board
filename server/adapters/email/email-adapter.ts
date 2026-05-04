@@ -21,11 +21,18 @@ export type EmailSendResult =
 
 export interface EmailAdapter {
   /**
-   * Best-effort send. Adapters should NOT throw — they always resolve
-   * with a Result so the caller can decide whether to swallow or
-   * surface the failure. The email-service caller wraps every send in
-   * a safe-fire helper anyway, but adapter authors should still
-   * follow this contract for predictability.
+   * Best-effort send.
+   *
+   * Failure semantics:
+   *  - For *expected* provider failures (rate limits, validation
+   *    rejections, transient SDK error responses), adapters should
+   *    resolve with `{ ok: false, provider, error }` so callers can
+   *    log and move on without exception handling.
+   *  - For *unexpected* runtime errors (network blow-ups, bugs in the
+   *    SDK), adapters MAY throw. `dispatchEmail` wraps every send in
+   *    try/catch and synthesizes `{ ok: false }` from a thrown error,
+   *    so a primary mutation is never rolled back regardless of which
+   *    path triggers.
    */
   send(message: EmailMessage): Promise<EmailSendResult>;
 

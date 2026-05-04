@@ -60,17 +60,26 @@ export function CompanyOnboardingWelcome({
 
       <ul className="space-y-2 text-sm text-muted-foreground">
         <li className="flex items-start gap-2">
-          <span aria-hidden className="mt-1 block size-1.5 rounded-full bg-foreground" />
+          <span
+            aria-hidden
+            className="mt-1 block size-1.5 rounded-full bg-foreground"
+          />
           {hasProfile
             ? "Fill in the remaining company details so students can learn what you do."
             : "Add your company name, industry, and a short description."}
         </li>
         <li className="flex items-start gap-2">
-          <span aria-hidden className="mt-1 block size-1.5 rounded-full bg-foreground" />
+          <span
+            aria-hidden
+            className="mt-1 block size-1.5 rounded-full bg-foreground"
+          />
           Upload a logo to make postings recognizable in the public list.
         </li>
         <li className="flex items-start gap-2">
-          <span aria-hidden className="mt-1 block size-1.5 rounded-full bg-foreground" />
+          <span
+            aria-hidden
+            className="mt-1 block size-1.5 rounded-full bg-foreground"
+          />
           Draft your first internship posting. It can stay as a draft until
           you&apos;re approved.
         </li>

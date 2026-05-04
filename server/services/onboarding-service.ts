@@ -31,9 +31,7 @@ export type LandingTarget =
  *
  * Soft-deleted profiles are treated as missing.
  */
-export async function needsStudentOnboarding(
-  userId: string,
-): Promise<boolean> {
+export async function needsStudentOnboarding(userId: string): Promise<boolean> {
   const profile = await prisma.studentProfile.findUnique({
     where: { userId },
     select: { isProfileComplete: true },
@@ -54,9 +52,7 @@ export async function needsStudentOnboarding(
  * company has finished onboarding; they're just waiting for admin
  * review. That state is surfaced on the dashboard itself.
  */
-export async function needsCompanyOnboarding(
-  userId: string,
-): Promise<boolean> {
+export async function needsCompanyOnboarding(userId: string): Promise<boolean> {
   const profile = await prisma.companyProfile.findFirst({
     where: { userId, deletedAt: null },
     select: {

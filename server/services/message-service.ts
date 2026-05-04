@@ -2,10 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/db/client";
 import type { ApplicationStatus } from "@/lib/db/generated/enums";
-import {
-  dispatchEmail,
-  newMessage,
-} from "@/server/services/email-service";
+import { dispatchEmail, newMessage } from "@/server/services/email-service";
 
 /**
  * Message service. Tenant isolation is enforced here — no route or

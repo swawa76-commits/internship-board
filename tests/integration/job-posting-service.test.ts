@@ -365,59 +365,62 @@ describe.skipIf(skip)("updateJobPosting", () => {
   });
 });
 
-describe.skipIf(skip)("listJobPostingsForCompany / getJobPostingByIdForCompany", () => {
-  it("lists only the calling company's postings, soft-deleted excluded", async () => {
-    const a = await makePendingCompany("list-a");
-    const b = await makePendingCompany("list-b");
-    const aPosting = await createJobPosting(a.userId, {
-      ...VALID_FORM_INPUT,
-      title: "A's role",
+describe.skipIf(skip)(
+  "listJobPostingsForCompany / getJobPostingByIdForCompany",
+  () => {
+    it("lists only the calling company's postings, soft-deleted excluded", async () => {
+      const a = await makePendingCompany("list-a");
+      const b = await makePendingCompany("list-b");
+      const aPosting = await createJobPosting(a.userId, {
+        ...VALID_FORM_INPUT,
+        title: "A's role",
+      });
+      if (!aPosting.ok) throw new Error("setup failed");
+      const bPosting = await createJobPosting(b.userId, {
+        ...VALID_FORM_INPUT,
+        title: "B's role",
+      });
+      if (!bPosting.ok) throw new Error("setup failed");
+      const deleted = await createJobPosting(a.userId, {
+        ...VALID_FORM_INPUT,
+        title: "Soon to be deleted",
+      });
+      if (!deleted.ok) throw new Error("setup failed");
+      await softDeleteJobPosting(a.userId, deleted.id);
+
+      const aList = await listJobPostingsForCompany(a.userId);
+      const aIds = new Set(aList.map((r) => r.id));
+      expect(aIds.has(aPosting.id)).toBe(true);
+      expect(aIds.has(bPosting.id)).toBe(false);
+      expect(aIds.has(deleted.id)).toBe(false);
     });
-    if (!aPosting.ok) throw new Error("setup failed");
-    const bPosting = await createJobPosting(b.userId, {
-      ...VALID_FORM_INPUT,
-      title: "B's role",
+
+    it("getJobPostingByIdForCompany returns null for a posting owned by another company", async () => {
+      const owner = await makePendingCompany("own-read");
+      const attacker = await makePendingCompany("attacker-read");
+      const created = await createJobPosting(owner.userId, VALID_FORM_INPUT);
+      if (!created.ok) throw new Error("setup failed");
+
+      expect(
+        await getJobPostingByIdForCompany(attacker.userId, created.id),
+      ).toBeNull();
+      expect(
+        await getJobPostingByIdForCompany(owner.userId, created.id),
+      ).not.toBeNull();
     });
-    if (!bPosting.ok) throw new Error("setup failed");
-    const deleted = await createJobPosting(a.userId, {
-      ...VALID_FORM_INPUT,
-      title: "Soon to be deleted",
+
+    it("getJobPostingByIdForCompany excludes soft-deleted rows", async () => {
+      const co = await makePendingCompany("read-deleted");
+      const created = await createJobPosting(co.userId, VALID_FORM_INPUT);
+      if (!created.ok) throw new Error("setup failed");
+      await softDeleteJobPosting(co.userId, created.id);
+
+      expect(
+        await getJobPostingByIdForCompany(co.userId, created.id),
+      ).toBeNull();
     });
-    if (!deleted.ok) throw new Error("setup failed");
-    await softDeleteJobPosting(a.userId, deleted.id);
-
-    const aList = await listJobPostingsForCompany(a.userId);
-    const aIds = new Set(aList.map((r) => r.id));
-    expect(aIds.has(aPosting.id)).toBe(true);
-    expect(aIds.has(bPosting.id)).toBe(false);
-    expect(aIds.has(deleted.id)).toBe(false);
-  });
-
-  it("getJobPostingByIdForCompany returns null for a posting owned by another company", async () => {
-    const owner = await makePendingCompany("own-read");
-    const attacker = await makePendingCompany("attacker-read");
-    const created = await createJobPosting(owner.userId, VALID_FORM_INPUT);
-    if (!created.ok) throw new Error("setup failed");
-
-    expect(
-      await getJobPostingByIdForCompany(attacker.userId, created.id),
-    ).toBeNull();
-    expect(
-      await getJobPostingByIdForCompany(owner.userId, created.id),
-    ).not.toBeNull();
-  });
-
-  it("getJobPostingByIdForCompany excludes soft-deleted rows", async () => {
-    const co = await makePendingCompany("read-deleted");
-    const created = await createJobPosting(co.userId, VALID_FORM_INPUT);
-    if (!created.ok) throw new Error("setup failed");
-    await softDeleteJobPosting(co.userId, created.id);
-
-    expect(
-      await getJobPostingByIdForCompany(co.userId, created.id),
-    ).toBeNull();
-  });
-});
+  },
+);
 
 describe.skipIf(skip)("softDeleteJobPosting", () => {
   it("soft-deletes the row and removes it from public visibility", async () => {

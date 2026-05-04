@@ -89,7 +89,11 @@ export function studentWelcome(input: StudentWelcomeInput): EmailMessage {
   };
 }
 
-export type CompanyWelcomeInput = { to: string; userId: string; companyName?: string };
+export type CompanyWelcomeInput = {
+  to: string;
+  userId: string;
+  companyName?: string;
+};
 export function companyWelcome(input: CompanyWelcomeInput): EmailMessage {
   const name = input.companyName ?? "your company";
   return {

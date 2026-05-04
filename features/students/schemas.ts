@@ -33,7 +33,10 @@ export const profileBasicsSchema = z.object({
       .number()
       .int()
       .min(currentYear - 5, "That graduation year looks too far in the past.")
-      .max(currentYear + 10, "That graduation year looks too far in the future.")
+      .max(
+        currentYear + 10,
+        "That graduation year looks too far in the future.",
+      )
       .nullable(),
   ),
   degree: optionalText(80),

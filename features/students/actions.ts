@@ -79,7 +79,9 @@ export async function saveProfileBasicsAction(
 
 export async function addSkillAction(formData: FormData): Promise<void> {
   const user = await requireRole("STUDENT");
-  const parsed = skillSchema.safeParse({ name: pickFormString(formData, "name") });
+  const parsed = skillSchema.safeParse({
+    name: pickFormString(formData, "name"),
+  });
   if (!parsed.success) return;
   await addSkill(user.id, parsed.data);
   pathnamesToRevalidate();
@@ -109,7 +111,9 @@ export async function addExperienceAction(formData: FormData): Promise<void> {
   pathnamesToRevalidate();
 }
 
-export async function removeExperienceAction(formData: FormData): Promise<void> {
+export async function removeExperienceAction(
+  formData: FormData,
+): Promise<void> {
   const user = await requireRole("STUDENT");
   const id = pickFormString(formData, "id");
   if (!z.string().cuid().safeParse(id).success) return;

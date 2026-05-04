@@ -135,66 +135,69 @@ describe.skipIf(skip)("needsCompanyOnboarding", () => {
   });
 });
 
-describe.skipIf(skip)("decideLandingFor — post-signup / post-login routing", () => {
-  it("routes ADMIN to /admin (admins skip onboarding entirely)", async () => {
-    expect(await decideLandingFor("ADMIN", seededAdminId)).toBe("/admin");
-  });
-
-  it("routes a fresh STUDENT signup to /student/onboarding", async () => {
-    const r = await createUserWithCredentials({
-      email: `${RUN_ID}-route-student@test.local`,
-      password: "longenough",
-      role: "STUDENT",
+describe.skipIf(skip)(
+  "decideLandingFor — post-signup / post-login routing",
+  () => {
+    it("routes ADMIN to /admin (admins skip onboarding entirely)", async () => {
+      expect(await decideLandingFor("ADMIN", seededAdminId)).toBe("/admin");
     });
-    if (!r.ok) throw new Error("setup failed");
-    createdUserIds.push(r.userId);
 
-    expect(await decideLandingFor("STUDENT", r.userId)).toBe(
-      "/student/onboarding",
-    );
-  });
+    it("routes a fresh STUDENT signup to /student/onboarding", async () => {
+      const r = await createUserWithCredentials({
+        email: `${RUN_ID}-route-student@test.local`,
+        password: "longenough",
+        role: "STUDENT",
+      });
+      if (!r.ok) throw new Error("setup failed");
+      createdUserIds.push(r.userId);
 
-  it("routes a returning complete STUDENT to /student/dashboard", async () => {
-    expect(await decideLandingFor("STUDENT", seededStudentCompleteId)).toBe(
-      "/student/dashboard",
-    );
-  });
-
-  it("routes a returning incomplete STUDENT to /student/onboarding", async () => {
-    expect(await decideLandingFor("STUDENT", seededStudentIncompleteId)).toBe(
-      "/student/onboarding",
-    );
-  });
-
-  it("routes a fresh COMPANY signup to /company/onboarding", async () => {
-    const r = await createUserWithCredentials({
-      email: `${RUN_ID}-route-company@test.local`,
-      password: "longenough",
-      role: "COMPANY",
+      expect(await decideLandingFor("STUDENT", r.userId)).toBe(
+        "/student/onboarding",
+      );
     });
-    if (!r.ok) throw new Error("setup failed");
-    createdUserIds.push(r.userId);
 
-    expect(await decideLandingFor("COMPANY", r.userId)).toBe(
-      "/company/onboarding",
-    );
-  });
+    it("routes a returning complete STUDENT to /student/dashboard", async () => {
+      expect(await decideLandingFor("STUDENT", seededStudentCompleteId)).toBe(
+        "/student/dashboard",
+      );
+    });
 
-  it("routes a returning APPROVED COMPANY to /company/dashboard", async () => {
-    expect(await decideLandingFor("COMPANY", seededApprovedCompanyId)).toBe(
-      "/company/dashboard",
-    );
-  });
+    it("routes a returning incomplete STUDENT to /student/onboarding", async () => {
+      expect(await decideLandingFor("STUDENT", seededStudentIncompleteId)).toBe(
+        "/student/onboarding",
+      );
+    });
 
-  it("routes a returning PENDING COMPANY to /company/dashboard (not onboarding)", async () => {
-    expect(await decideLandingFor("COMPANY", seededPendingCompanyId)).toBe(
-      "/company/dashboard",
-    );
-  });
+    it("routes a fresh COMPANY signup to /company/onboarding", async () => {
+      const r = await createUserWithCredentials({
+        email: `${RUN_ID}-route-company@test.local`,
+        password: "longenough",
+        role: "COMPANY",
+      });
+      if (!r.ok) throw new Error("setup failed");
+      createdUserIds.push(r.userId);
 
-  it("routes a returning SUSPENDED COMPANY to /company/dashboard", async () => {
-    expect(await decideLandingFor("COMPANY", seededSuspendedCompanyId)).toBe(
-      "/company/dashboard",
-    );
-  });
-});
+      expect(await decideLandingFor("COMPANY", r.userId)).toBe(
+        "/company/onboarding",
+      );
+    });
+
+    it("routes a returning APPROVED COMPANY to /company/dashboard", async () => {
+      expect(await decideLandingFor("COMPANY", seededApprovedCompanyId)).toBe(
+        "/company/dashboard",
+      );
+    });
+
+    it("routes a returning PENDING COMPANY to /company/dashboard (not onboarding)", async () => {
+      expect(await decideLandingFor("COMPANY", seededPendingCompanyId)).toBe(
+        "/company/dashboard",
+      );
+    });
+
+    it("routes a returning SUSPENDED COMPANY to /company/dashboard", async () => {
+      expect(await decideLandingFor("COMPANY", seededSuspendedCompanyId)).toBe(
+        "/company/dashboard",
+      );
+    });
+  },
+);

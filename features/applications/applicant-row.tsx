@@ -6,7 +6,10 @@ import type { CompanyApplicantRow } from "@/server/services/application-service"
 
 const NEXT_TARGETS: Record<
   string,
-  Array<{ target: "IN_REVIEW" | "INTERVIEWING" | "OFFER" | "REJECTED"; label: string }>
+  Array<{
+    target: "IN_REVIEW" | "INTERVIEWING" | "OFFER" | "REJECTED";
+    label: string;
+  }>
 > = {
   APPLIED: [
     { target: "IN_REVIEW", label: "Move to review" },
@@ -34,13 +37,15 @@ export function ApplicantRow({ row }: { row: CompanyApplicantRow }) {
     <article className="space-y-3 rounded-md border border-border bg-card p-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-base font-medium">
-            {row.studentProfile.fullName}
-          </p>
+          <p className="text-base font-medium">{row.studentProfile.fullName}</p>
           <p className="text-xs text-muted-foreground">
             {row.studentProfile.headline ?? "No headline"}
-            {row.studentProfile.university ? <> · {row.studentProfile.university}</> : null}
-            {row.studentProfile.major ? <> · {row.studentProfile.major}</> : null}
+            {row.studentProfile.university ? (
+              <> · {row.studentProfile.university}</>
+            ) : null}
+            {row.studentProfile.major ? (
+              <> · {row.studentProfile.major}</>
+            ) : null}
             {row.studentProfile.graduationYear ? (
               <> · Class of {row.studentProfile.graduationYear}</>
             ) : null}
@@ -62,9 +67,7 @@ export function ApplicantRow({ row }: { row: CompanyApplicantRow }) {
           <summary className="cursor-pointer text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Cover letter
           </summary>
-          <p className="mt-2 whitespace-pre-line text-sm">
-            {row.coverLetter}
-          </p>
+          <p className="mt-2 whitespace-pre-line text-sm">{row.coverLetter}</p>
         </details>
       ) : null}
 
@@ -79,7 +82,9 @@ export function ApplicantRow({ row }: { row: CompanyApplicantRow }) {
             Open resume snapshot →
           </a>
         ) : (
-          <span className="text-xs text-muted-foreground">No resume on file</span>
+          <span className="text-xs text-muted-foreground">
+            No resume on file
+          </span>
         )}
         <div className="flex flex-wrap gap-2">
           <Button asChild size="sm" variant="outline">
@@ -88,10 +93,7 @@ export function ApplicantRow({ row }: { row: CompanyApplicantRow }) {
             </Link>
           </Button>
           {transitions.map((t) => (
-            <form
-              key={t.target}
-              action={transitionApplicationStatusAction}
-            >
+            <form key={t.target} action={transitionApplicationStatusAction}>
               <input type="hidden" name="applicationId" value={row.id} />
               <input type="hidden" name="newStatus" value={t.target} />
               <Button

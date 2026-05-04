@@ -31,9 +31,7 @@ test("anonymous user can browse, filter, and open a job detail page", async ({
   const href = await firstLink.getAttribute("href");
   expect(href).toMatch(/^\/companies\/[a-z0-9-]+\/jobs\/[a-z0-9-]+$/);
   await firstLink.click();
-  await expect(page).toHaveURL(
-    /\/companies\/[a-z0-9-]+\/jobs\/[a-z0-9-]+$/,
-  );
+  await expect(page).toHaveURL(/\/companies\/[a-z0-9-]+\/jobs\/[a-z0-9-]+$/);
 
   // Apply CTA is visible. (Anonymous visitor: a "Log in to apply" link
   // since Task 11 wired the CTA to a real apply flow.)

@@ -21,8 +21,8 @@ export default async function CompanyJobsPage() {
             Job postings
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Drafts stay private until you publish. Only approved companies
-            can publish to the public list.
+            Drafts stay private until you publish. Only approved companies can
+            publish to the public list.
           </p>
         </div>
         <Button asChild>

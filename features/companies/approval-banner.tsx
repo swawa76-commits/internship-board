@@ -23,8 +23,7 @@ const COPY: Record<
 
 const TONE_CLASSES: Record<"muted" | "warn" | "ok", string> = {
   muted: "border-border bg-muted/40 text-foreground",
-  warn:
-    "border-destructive/40 bg-destructive/10 text-destructive dark:text-destructive-foreground",
+  warn: "border-destructive/40 bg-destructive/10 text-destructive dark:text-destructive-foreground",
   ok: "border-border bg-card text-foreground",
 };
 

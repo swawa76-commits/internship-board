@@ -54,14 +54,20 @@ export function AdminPagination({
       </p>
       <div className="flex items-center gap-3">
         {page > 1 ? (
-          <Link className="font-medium hover:text-foreground" href={hrefFor(prev)}>
+          <Link
+            className="font-medium hover:text-foreground"
+            href={hrefFor(prev)}
+          >
             ← Previous
           </Link>
         ) : (
           <span className="opacity-50">← Previous</span>
         )}
         {page < totalPages ? (
-          <Link className="font-medium hover:text-foreground" href={hrefFor(next)}>
+          <Link
+            className="font-medium hover:text-foreground"
+            href={hrefFor(next)}
+          >
             Next →
           </Link>
         ) : (
