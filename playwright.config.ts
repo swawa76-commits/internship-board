@@ -5,13 +5,31 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  // Tests share the seeded development DB and a single dev server.
-  // Several specs flip seeded approval state (e.g. globex-health
-  // PENDING → APPROVED → PENDING) which races other specs that
-  // assert the canonical state. Run a single worker so the suite
-  // is deterministic. Each spec already uses unique signup emails
-  // for fresh fixtures so cross-test contamination of new accounts
-  // isn't an issue; the constraint is on shared seeded rows only.
+  // ───────────────────────────────────────────────────────────────────
+  // INTENTIONALLY SERIAL — DO NOT RE-ENABLE PARALLELISM WITHOUT FIXING
+  // SHARED SEEDED-STATE MUTATIONS FIRST.
+  //
+  // The Playwright suite runs against the dev server + the dev
+  // PostgreSQL database, which shares the *seeded* fixtures across
+  // every test. Several specs mutate that shared state — e.g.
+  // tests/e2e/admin-approval.spec.ts flips globex-health from PENDING
+  // → APPROVED → PENDING, while tests/e2e/public-jobs.spec.ts and
+  // tests/e2e/onboarding-routing.spec.ts assert globex-health is
+  // canonically PENDING. Under fullyParallel: true with multiple
+  // workers, those specs race and the suite flakes intermittently.
+  //
+  // Per-spec fixtures (signup emails, brand-new postings) already use
+  // unique-per-run identifiers so cross-test contamination of FRESH
+  // rows isn't an issue. The constraint is purely on the shared
+  // seeded canonical rows.
+  //
+  // To safely turn parallelism back on:
+  //   1. Move every spec that mutates seeded data onto its own
+  //      isolated DB (per-worker schema or per-test transaction-rollback).
+  //   2. OR refactor those specs to use freshly-created fixtures so
+  //      they never touch the canonical seeded rows.
+  //   3. Then flip these flags and re-verify the suite is stable.
+  // ───────────────────────────────────────────────────────────────────
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
