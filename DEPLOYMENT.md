@@ -136,7 +136,8 @@ If the recipient receives the test message and the script exits `0`, the integra
 
 The first push to your production branch (typically `main`) triggers a Vercel build. Two notes:
 
-- The **build step does not run migrations.** `next build` does run `prisma generate` (via `postinstall` in many repos; this project relies on the generator output committed under `lib/db/generated`, so confirm the generator runs in your build pipeline if you ever delete those artefacts).
+- **`prisma generate` runs at install time.** The `postinstall` script in `package.json` regenerates the typed client into `lib/db/generated` after every `npm install`, so Vercel always has it before `next build` starts. The generated directory is git-ignored and is recreated on every install rather than committed.
+- **The build step does NOT run migrations.** `prisma generate` only emits the typed client from `schema.prisma` — it makes no network call and never touches the database. Production migrations remain manual: run `npm run db:migrate:deploy` from a workstation or CI step with the production `DATABASE_URL` exported. See §4 below.
 - The Vercel build will **fail loudly** if `STORAGE_DRIVER` is set to an unknown value in production. This is intentional — see "Failure modes" below.
 
 Once the build succeeds, Vercel promotes the deployment to the production URL.

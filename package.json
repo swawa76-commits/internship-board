@@ -23,7 +23,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "smoke:email": "tsx --conditions=react-server scripts/smoke-email.ts",
     "admin:create": "tsx --conditions=react-server scripts/admin-create.ts",
-    "preflight:prod": "tsx --conditions=react-server scripts/preflight-production.ts"
+    "preflight:prod": "tsx --conditions=react-server scripts/preflight-production.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1041.0",
