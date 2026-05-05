@@ -181,6 +181,57 @@ For production:
 
 If you genuinely need demo data in a non-prod environment (staging), point `DATABASE_URL` at the staging DB and run the seed there.
 
+### Production preflight check
+
+The script in [`scripts/preflight-production.ts`](scripts/preflight-production.ts) is a read-only operator tool that checks whether the app is ready to run in production. Run it from a workstation (or a CI step) with the same env you'll set in Vercel:
+
+```bash
+npm run preflight:prod
+```
+
+**What it checks (read-only):**
+
+- Required env vars: `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`, `STORAGE_DRIVER`, `EMAIL_DRIVER`.
+- `AUTH_SECRET` length ≥ 32 (security/config hygiene).
+- `AUTH_URL` is a valid URL. Fatal if it uses `http:` while `NODE_ENV=production`; warning otherwise (e.g. local dev behind a TLS-terminating proxy).
+- `STORAGE_DRIVER=s3` branch: `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` all set; optional `S3_SIGNED_URL_TTL_SECONDS` parses as a positive integer; warns if `S3_REGION=auto` but `S3_ENDPOINT` is unset (R2 needs a custom endpoint).
+- `STORAGE_DRIVER=local` in production: warning (uploads are ephemeral on serverless platforms).
+- `EMAIL_DRIVER=resend` branch: `RESEND_API_KEY` and `EMAIL_FROM` set; `EMAIL_FROM` parses as bare or RFC-2822 `Display Name <addr@host>`; optional `EMAIL_REPLY_TO` parses as bare email.
+- `EMAIL_DRIVER=console` in production: warning (notifications are silently dropped).
+- Prisma can connect (`SELECT 1` only — no schema mutation, no row writes).
+- At least one active `ADMIN` user exists (read-only `count`).
+
+**Optional opt-ins (off by default):**
+
+| Var                       | Effect                                                                                                                                                |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PREFLIGHT_SEND_EMAIL=true` | When `EMAIL_DRIVER=resend` and `SMOKE_EMAIL_TO` is set, sends one Resend smoke email through the production adapter. Same path as `npm run smoke:email`. |
+| `PREFLIGHT_STORAGE_WRITE=true` | When `STORAGE_DRIVER=s3`, performs a `put` + presigned `read` + `delete` round-trip against the configured bucket. Limited to `s3` by design.        |
+
+**Migrations are NOT auto-checked.** Migration verification is intentionally manual to avoid coupling preflight to Prisma CLI internals. Run separately:
+
+```bash
+npx prisma migrate status
+npm run db:migrate:deploy   # if migrations are pending
+```
+
+**Output:**
+
+- One line per check, tagged `[ok]`, `[WARN]`, or `[FAIL]`.
+- A summary line: `[preflight] N passed, M warnings, K failures`.
+- Exit code `0` if no failures (warnings allowed); exit `1` if at least one fatal check failed.
+- **Never prints** `RESEND_API_KEY`, `S3_SECRET_ACCESS_KEY`, `AUTH_SECRET`, `DATABASE_URL` credentials, or full email addresses. `EMAIL_FROM`, `EMAIL_REPLY_TO`, and `SMOKE_EMAIL_TO` are partially masked. `DATABASE_URL` is reduced to host + db name. `AUTH_URL` is reduced to host.
+
+**Recommended sequence before flipping production traffic:**
+
+```bash
+npm run preflight:prod                                  # baseline
+PREFLIGHT_STORAGE_WRITE=true npm run preflight:prod     # round-trip R2
+PREFLIGHT_SEND_EMAIL=true SMOKE_EMAIL_TO=you@example.com npm run preflight:prod   # one real email
+```
+
+Each invocation is independent; you can chain them into a deploy gate (`npm run preflight:prod && vercel --prod`).
+
 ### Bootstrap the first admin user
 
 The script in [`scripts/admin-create.ts`](scripts/admin-create.ts) creates exactly one `ADMIN` row using the same bcrypt helper the rest of the app uses. It is the only sanctioned production path — never use `npm run db:seed`.
