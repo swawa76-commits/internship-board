@@ -12,12 +12,12 @@ const COPY: Record<
   PENDING: {
     label: "Pending review",
     tone: "muted",
-    body: "An admin is reviewing your account. Job postings stay private until you're approved — you can keep drafting in the meantime.",
+    body: "PCI is reviewing your account. Job postings stay private until you're approved — you can keep drafting in the meantime.",
   },
   SUSPENDED: {
     label: "Suspended",
     tone: "warn",
-    body: "Your account is suspended. Existing postings are hidden from students until an admin reinstates the account.",
+    body: "Your account is suspended. Existing postings are hidden from students until PCI reinstates the account.",
   },
 };
 

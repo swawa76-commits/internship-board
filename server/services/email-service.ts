@@ -103,7 +103,7 @@ export function companyWelcome(input: CompanyWelcomeInput): EmailMessage {
       `Welcome!\n\n` +
       `${name} now has a company account. The next steps:\n` +
       `  1. Finish your company profile (/company/profile)\n` +
-      `  2. Wait for admin approval (you can still draft postings while pending)\n` +
+      `  2. Wait for PCI approval (you can still draft postings while pending)\n` +
       `  3. Once approved, publish postings to start receiving applicants\n`,
     metadata: { kind: "company_welcome", userId: input.userId },
   };
@@ -152,7 +152,7 @@ export function companyApprovalChanged(
       `${input.companyName} is currently in PENDING review.\n\n` +
       `You can keep editing your profile and drafting postings; published postings stay hidden until you're back to APPROVED.`,
     SUSPENDED:
-      `${input.companyName} has been suspended by an admin.\n\n` +
+      `${input.companyName} has been suspended by PCI.\n\n` +
       `Your published postings are hidden from the public board until the suspension is lifted.`,
   };
   return {

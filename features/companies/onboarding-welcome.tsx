@@ -11,11 +11,11 @@ export type CompanyOnboardingWelcomeProps = {
 
 const APPROVAL_BLURB: Record<CompanyApprovalStatus, string> = {
   PENDING:
-    "Your profile is queued for admin review. You can keep drafting job postings while you wait — they'll go live the moment you're approved.",
+    "Your profile is queued for PCI review. You can keep drafting job postings while you wait — they'll go live the moment you're approved.",
   APPROVED:
     "You're approved. Anything you publish will be visible to students immediately.",
   SUSPENDED:
-    "Your account is currently suspended. Existing job postings are hidden from students until an admin reinstates the account.",
+    "Your account is currently suspended. Existing job postings are hidden from students until PCI reinstates the account.",
 };
 
 /**
