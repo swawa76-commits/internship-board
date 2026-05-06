@@ -4,7 +4,7 @@ test("home page loads with marketing copy", async ({ page }) => {
   await page.goto("/");
   await expect(
     page.getByRole("heading", {
-      name: /Connect students with internship opportunities/i,
+      name: /Connect Penn innovation ventures with student talent/i,
     }),
   ).toBeVisible();
 });

@@ -12,13 +12,27 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_TITLE = "PCI Internship Marketplace";
+const SITE_DESCRIPTION =
+  "Connect Penn innovation ventures with student talent through a marketplace for internships, applications, and company-student messaging.";
+
 export const metadata: Metadata = {
   title: {
-    default: "Internship Job Board",
-    template: "%s · Internship Job Board",
+    default: SITE_TITLE,
+    template: `%s · ${SITE_TITLE}`,
   },
-  description:
-    "Two-sided internship marketplace connecting students with companies.",
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: SITE_TITLE,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
 };
 
 export default function RootLayout({
