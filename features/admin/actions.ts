@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { prisma } from "@/lib/db/client";
 import { requireRole } from "@/lib/auth/guards";
 import {
   setCompanyApprovalStatus,
@@ -10,6 +11,11 @@ import {
   softDeleteJobPostingAsAdmin,
   softDeleteStudentAsAdmin,
 } from "@/server/services/admin-service";
+import {
+  type EmailDiagnosticResult,
+  runEmailDiagnostic,
+  sanitizeEmailDiagnosticError,
+} from "@/server/services/email-service";
 
 const approvalChangeSchema = z.object({
   companyProfileId: z.string().cuid(),
@@ -103,4 +109,52 @@ export async function softDeleteJobPostingAdminAction(
   revalidatePath("/admin/jobs");
   revalidatePath("/admin");
   revalidatePath("/jobs");
+}
+
+/**
+ * Operator email diagnostic. Sends one fixed-subject test message to
+ * the current admin's own DB email through the same `dispatchEmail`
+ * wrapper production notifications use, so the result reflects the
+ * deployed runtime's email configuration (not local env).
+ *
+ * Safety:
+ *  - `requireRole("ADMIN")` gates the action.
+ *  - Recipient is re-read from the DB by session userId — never an
+ *    arbitrary input. Defense in depth against stale session data.
+ *  - Returns a sanitized result; never echoes the raw recipient or any
+ *    credential-shaped substring of an adapter error.
+ *  - On unexpected throw, returns a structured `ok: false` result so
+ *    the UI never shows an error boundary.
+ */
+export async function runEmailDiagnosticAction(
+  _prevState: EmailDiagnosticResult | null,
+  _formData: FormData,
+): Promise<EmailDiagnosticResult> {
+  try {
+    const session = await requireRole("ADMIN");
+
+    const dbAdmin = await prisma.user.findFirst({
+      where: { id: session.id, role: "ADMIN", deletedAt: null },
+      select: { email: true },
+    });
+    if (!dbAdmin || !dbAdmin.email) {
+      return {
+        provider: "unknown",
+        recipientMasked: "***",
+        ok: false,
+        error:
+          "no active ADMIN row with an email found for the current session",
+      };
+    }
+
+    return await runEmailDiagnostic({ to: dbAdmin.email });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      provider: "unknown",
+      recipientMasked: "***",
+      ok: false,
+      error: sanitizeEmailDiagnosticError(message),
+    };
+  }
 }

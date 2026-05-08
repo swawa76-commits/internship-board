@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { EmailDiagnosticForm } from "@/features/admin/email-diagnostic-form";
 import { LogoutButton } from "@/features/auth/logout-button";
 import { requireRole } from "@/lib/auth/guards";
 import {
@@ -315,6 +316,13 @@ export default async function AdminDashboardPage({
             ))}
           </ol>
         )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight">
+          Operator tools
+        </h2>
+        <EmailDiagnosticForm />
       </section>
     </main>
   );

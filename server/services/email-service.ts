@@ -73,6 +73,86 @@ export async function dispatchEmail(
   }
 }
 
+// ---------- Diagnostic ----------
+
+export type EmailDiagnosticResult = {
+  /** Adapter providerName at dispatch time, e.g. "resend" or "console". */
+  provider: string;
+  /** Recipient email with the local-part masked, e.g. "a***@example.com". */
+  recipientMasked: string;
+  ok: boolean;
+  /** Sanitized error string, only present when ok === false. */
+  error?: string;
+};
+
+/**
+ * Mask the local-part of an email so logs/UIs never echo the full address.
+ * Exported so callers can use the same masking for related fields.
+ */
+export function maskEmailAddress(addr: string): string {
+  const at = addr.indexOf("@");
+  if (at <= 1) return "***";
+  const local = addr.slice(0, at);
+  const domain = addr.slice(at);
+  const head = local.slice(0, 1);
+  return `${head}${"*".repeat(Math.max(local.length - 1, 1))}${domain}`;
+}
+
+/**
+ * Strip credential-shaped substrings from an error string so it's safe
+ * to surface in an admin UI. Conservative: prefers false positives
+ * (over-masking) to false negatives.
+ */
+export function sanitizeEmailDiagnosticError(raw: string): string {
+  let s = raw;
+  s = s.replace(/\b(re|sk)_[A-Za-z0-9_-]{8,}/gi, "$1_***");
+  s = s.replace(/\bAKIA[A-Z0-9]{12,}/g, "AKIA***");
+  s = s.replace(/([a-z]+:\/\/)[^/@\s]+:[^/@\s]+@/gi, "$1***:***@");
+  s = s.replace(/\b[A-Za-z0-9+/]{40,}={0,2}\b/g, "***");
+  if (s.length > 300) s = s.slice(0, 300) + "…";
+  return s;
+}
+
+/**
+ * Send one diagnostic email through the same `dispatchEmail` wrapper
+ * production notifications use. Returns a sanitized result safe to
+ * display in an admin UI — never echoes the raw recipient or any
+ * provider error containing credentials.
+ *
+ * Caller is responsible for choosing `to`. The admin diagnostic action
+ * always passes the current admin's own DB email so this can never be
+ * abused as an arbitrary mailer.
+ */
+export async function runEmailDiagnostic(input: {
+  to: string;
+}): Promise<EmailDiagnosticResult> {
+  const recipientMasked = maskEmailAddress(input.to);
+  const message: EmailMessage = {
+    to: input.to,
+    subject: "PCI email diagnostic",
+    body:
+      `This is a diagnostic message from the deployed production app.\n\n` +
+      `Sent at: ${new Date().toISOString()}\n\n` +
+      `If you received this, the runtime's email configuration is wired up end-to-end.`,
+    metadata: { kind: "email_diagnostic" },
+  };
+
+  const result = await dispatchEmail(message);
+  if (!result.ok) {
+    return {
+      provider: result.provider,
+      recipientMasked,
+      ok: false,
+      error: sanitizeEmailDiagnosticError(result.error),
+    };
+  }
+  return {
+    provider: result.provider,
+    recipientMasked,
+    ok: true,
+  };
+}
+
 // ---------- Templates ----------
 
 export type StudentWelcomeInput = { to: string; userId: string };
